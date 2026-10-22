@@ -1,0 +1,22 @@
+/* BizSim 7.1.0 character UI. Typography from Adobe Fonts kit (Quicksand + Bungee), with safe fallbacks. */
+:root{--font-char:"quicksand","Nunito","Segoe UI",system-ui,sans-serif;--font-display:"bungee","Arial Black","Segoe UI",sans-serif}
+.hr-root,.char-card,.cc,.iv-cand,.iv-free,.cd-card,.rs-card{font-family:var(--font-char)}
+.char-card h3,.cc-prev b,.cd-sal b{font-family:var(--font-display);font-weight:400;letter-spacing:.01em}
+.portrait{display:block;flex:0 0 auto;border-radius:26%;box-shadow:0 4px 12px rgba(15,35,60,.16);transition:transform .25s var(--ease)}
+.cd-card:hover .portrait,.rs-card:hover .portrait{transform:translateY(-2px) rotate(-2deg)}
+.char-card{margin-bottom:16px;background:linear-gradient(135deg,#eef4ff,#fff)}
+.char-head{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.cc{display:grid;grid-template-columns:minmax(150px,190px) 1fr;gap:18px}
+.cc-prev{display:grid;gap:10px;justify-items:center;align-content:start;padding:14px;border-radius:18px;background:#f5f8fc}
+.cc-opts{display:grid;gap:12px}
+.pk small{display:block;font-weight:800;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px}
+.pk-row{display:flex;gap:6px;flex-wrap:wrap}
+.pk-o{border:2px solid var(--line);background:#fff;border-radius:11px;min-width:34px;height:34px;display:grid;place-items:center;cursor:pointer;font-weight:800;font-size:11px;padding:0 8px;font-family:inherit}
+.pk-o i{width:20px;height:20px;border-radius:50%;display:block;border:1px solid #00000018}
+.pk-o.on{border-color:var(--blue);background:#eef4ff;box-shadow:0 0 0 3px #2f6fed22}
+.pk-o.wide{min-width:0}
+.iv-cand{display:flex;gap:12px;align-items:center;padding:10px;background:#f5f8fc;border-radius:14px;margin-bottom:8px}
+.iv-cand small{display:block;color:var(--muted)}
+.iv-free{display:flex;gap:8px;margin-top:10px}.iv-free input{flex:1;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-family:inherit;font-size:12px}
+.cd-head .portrait,.rs-card>.portrait{width:56px;height:56px}
+@media(max-width:640px){.cc{grid-template-columns:1fr}.iv-free{flex-direction:column}}

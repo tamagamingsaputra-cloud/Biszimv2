@@ -1,0 +1,62 @@
+/* BizSim 7.6.0 UI/UX refinement — additive layer, keeps global navigation and engines intact. */
+:root{--navy:#102b4c;--navy-deep:#091d35;--blue:#2766b5;--line:#dce5ee;--surface:#fff;--surface-2:#f3f7fb;--ink:#14263b;--muted:#687b90;--good:#188653;--bad:#c83f45;--r2:14px;--shadow-soft:0 3px 14px rgba(16,43,76,.055)}
+html,body{background:#f2f6fa;color:var(--ink)}
+.content{max-width:1600px;margin-inline:auto}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin:4px 0 20px}
+.page-head h1{font-size:clamp(22px,2vw,29px);letter-spacing:-.035em;line-height:1.15;margin:0 0 7px;color:var(--navy)}
+.page-head p{max-width:780px;font-size:13px;line-height:1.55;margin:0;color:var(--muted)}
+.card{border-radius:13px;border-color:var(--line);box-shadow:0 2px 8px rgba(16,43,76,.035)}
+.card:hover{border-color:#cbd9e8}
+.section-title{color:var(--navy);letter-spacing:-.015em}
+.btn{min-height:36px;border-radius:8px;font-weight:750;transition:background .15s,border-color .15s,transform .15s}
+.btn:focus-visible,.nav-item:focus-visible,button:focus-visible{outline:3px solid #8dbbff;outline-offset:2px}
+.btn:active{transform:translateY(1px)}
+.badge{font-weight:800;letter-spacing:.015em}
+.grid{gap:14px}
+/* Dashboard: prioritize actual money/status, then assets and actions. */
+.mast-dash{border-radius:14px;box-shadow:none;border:1px solid #213d5e}
+.bs-status-strip{gap:10px;margin:12px 0 16px}
+.bs-status-tile{border-radius:12px;box-shadow:none;padding:13px 14px}
+.bs-status-tile small{letter-spacing:.06em}
+.bs-status-tile b{font-size:16px;overflow-wrap:anywhere}
+.bs-sec{border-radius:13px;padding:16px}
+.bs-empty-wrap{min-height:56vh;padding:12px 0}
+.bs-empty-hero{border-radius:16px;box-shadow:none;padding:28px 24px}
+.bs-empty-mark{background:var(--navy);box-shadow:none;border-radius:12px}
+.bs-empty-hero h2{font-size:22px;color:var(--navy)}
+.bs-empty-stats div{background:#f5f8fb;border-color:#e2eaf2}
+.bs-empty-actions .btn{min-width:140px}
+/* Trading and long-term investments are visibly distinct. */
+.market-card,.investment-card{height:100%;padding:15px;min-width:0}
+.market-card .market-price{font-size:clamp(22px,2vw,29px);font-weight:850;letter-spacing:-.035em;color:var(--navy);overflow-wrap:anywhere}
+.market-card .market-change{font-size:12px;font-weight:850;padding:5px 8px;border-radius:7px}
+.market-card .detail-grid{gap:8px}
+.market-card .detail,.investment-card .detail{border-radius:9px;background:#f5f8fb;border:1px solid #e6edf4;padding:9px}
+.market-card .detail span,.investment-card .detail span{font-size:10px;color:var(--muted)}
+.market-card .detail b,.investment-card .detail b{font-size:12px;overflow-wrap:anywhere}
+.investment-card>img,.investment-card>svg{max-height:116px;object-fit:contain}
+/* Business catalog: information hierarchy and clear locked states. */
+.business-catalog{gap:14px}
+.business-card{border:1px solid var(--line);border-radius:13px;overflow:hidden;box-shadow:none;background:#fff;min-width:0}
+.business-card>img,.business-card>svg{width:100%;height:145px;object-fit:cover;background:#f0f5f9}
+.business-card-body{padding:14px}
+.business-card h3{font-size:15px;line-height:1.3;color:var(--navy)}
+.business-card p{font-size:12px;line-height:1.5;color:var(--muted)}
+.business-card.locked{background:#f9fbfd}
+.business-card-foot{gap:8px;flex-wrap:wrap}
+.business-card-foot>span{font-size:11px;color:var(--muted)}
+/* Career: make requirements and application status scannable. */
+.job-card{border-radius:13px;box-shadow:none;min-width:0}
+.job-card .job-card-body{padding:14px}
+.job-card h3,.job-card .title{color:var(--navy)}
+.jc-state{letter-spacing:.01em}
+/* Consistent tables, transaction outcomes, and readable empty states. */
+.empty{border:1px dashed #c9d7e5;border-radius:11px;background:#f8fafc;color:#65788d;padding:18px;line-height:1.55}
+.notice{border-radius:10px;line-height:1.5}
+.metric-row{gap:14px;padding:10px 0;border-bottom:1px solid #edf1f5}
+.metric-row:last-child{border-bottom:0}
+input,select,textarea{border-radius:8px!important;border-color:#cdd9e5!important}
+/* Mobile: avoid overflow and preserve the existing global navigation model. */
+@media(max-width:900px){.page-head{flex-direction:column;gap:10px}.page-head .actions{flex-wrap:wrap}.content{padding-inline:12px}.business-card>img,.business-card>svg{height:130px}.bs-status-tile{padding:11px}.bs-status-tile b{font-size:14px}}
+@media(max-width:600px){.grid{gap:10px}.market-card,.investment-card,.bs-sec{padding:13px}.bs-status-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.bs-level-row{align-items:flex-start;flex-direction:column;gap:4px}.bs-empty-hero{padding:24px 16px}.bs-empty-actions{display:grid;grid-template-columns:1fr}.bs-empty-actions .btn{width:100%}.business-card-foot .btn{width:100%}.market-card .detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
