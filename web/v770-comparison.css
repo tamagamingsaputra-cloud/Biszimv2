@@ -1,0 +1,66 @@
+/* BizSim v7.7.0 — Variant A: page-specific information architecture.
+   Presentation only except the intentional removal of remote-font dependency in index.html. */
+:root{--a-ink:#12243a;--a-muted:#62738a;--a-line:#dce5ef;--a-surface:#fff;--a-soft:#f3f7fc;--a-blue:#1e5aa8;--a-green:#138064;--a-red:#b6434b;--a-radius:15px}
+html,body{background:#eef3f8;color:var(--a-ink)}
+.app-shell{grid-template-columns:228px minmax(0,1fr)!important;gap:0!important}
+.sidebar{background:#102741!important;padding:18px 12px 14px!important}
+.sidebar .brand{margin-bottom:16px!important;padding-bottom:14px!important}
+.sidebar .nav-item{min-height:40px;font-size:12px;letter-spacing:.005em;border-radius:8px!important}
+.sidebar .nav-item.active{background:#24496d!important;box-shadow:inset 3px 0 #83b8ff}
+.sidebar .nav-label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#9cb0c8}
+.topbar{min-height:64px!important;box-shadow:0 2px 8px rgba(15,37,63,.035)}
+.content{max-width:1560px!important;padding-top:22px!important}
+.content .page-head{border:0!important;margin-bottom:16px!important;padding-bottom:8px!important}
+.content .page-head p{max-width:720px;color:var(--a-muted);line-height:1.55}
+.content .card{border:1px solid var(--a-line)!important;border-radius:var(--a-radius)!important;box-shadow:0 3px 12px rgba(16,39,65,.035)!important}
+.content .card .card{border-radius:11px!important}
+.content .kpi{border-top:0!important;border-left:3px solid #c4d8f0!important;padding:15px 16px!important}
+.content .kpi-label{color:var(--a-muted);font-size:11px;font-weight:700;letter-spacing:.02em}
+.content .kpi-value{font-size:clamp(20px,1.9vw,28px)!important;letter-spacing:-.04em;overflow-wrap:anywhere}
+.content .section-head{margin-bottom:12px}
+.content .section-title{font-size:14px!important;letter-spacing:-.01em}
+.content .grid{align-items:stretch}
+.content .grid.two{grid-template-columns:minmax(0,1.25fr) minmax(280px,.75fr)!important;gap:16px!important}
+.content .grid.three{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:14px!important}
+.content .grid.four,.content .kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:12px!important}
+.content .hero{border-radius:var(--a-radius)!important;min-width:0}
+/* Dashboard: lead with financial state, then decisions, then evidence/activity. */
+.content[data-bizsim-view="dashboard"] .page-head{align-items:flex-end}
+.content[data-bizsim-view="dashboard"] .kpi-grid{margin-bottom:18px}
+.content[data-bizsim-view="dashboard"] .grid.two>.hero{min-height:205px;display:flex;flex-direction:column;justify-content:center}
+.content[data-bizsim-view="dashboard"] .grid.two>.card .spark{height:86px!important;border-radius:10px;background:linear-gradient(180deg,#f1f6fc,#fff);overflow:hidden}
+.content[data-bizsim-view="dashboard"] .grid.three{margin-top:14px!important}
+/* Market: market list and selected-asset/trade workspace read as a terminal. */
+.content[data-bizsim-view="market"] .page-head{border-bottom:1px solid var(--a-line)!important;padding-bottom:14px!important}
+.content[data-bizsim-view="market"] .grid.three{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(280px,1.25fr)!important;align-items:start}
+.content[data-bizsim-view="market"] .market-card{border-radius:12px!important;padding:15px!important}
+.content[data-bizsim-view="market"] .market-chart{height:180px!important}
+.content[data-bizsim-view="market"] .market-price{font-variant-numeric:tabular-nums}
+.content[data-bizsim-view="market"] .simulated-label{white-space:nowrap}
+/* Investments / portfolio: make performance and holdings separate work zones. */
+.content[data-bizsim-view="invest"],.content[data-bizsim-view="investments"],.content[data-bizsim-view="portfolio"]{--a-invest-gap:16px}
+.content[data-bizsim-view="portfolio"] .grid.two{grid-template-columns:minmax(0,1.1fr) minmax(300px,.9fr)!important}
+.content[data-bizsim-view="portfolio"] .chart{min-height:120px;border-radius:10px}
+.content[data-bizsim-view="invest"] .investment-card,.content[data-bizsim-view="investments"] .investment-card{height:100%;display:flex;flex-direction:column}
+/* Business: catalog-first browsing, then details and actions. */
+.content[data-bizsim-view="business"] .business-catalog{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:14px!important}
+.content[data-bizsim-view="business"] .business-card{border:1px solid var(--a-line);border-radius:13px;box-shadow:none;display:flex;flex-direction:column}
+.content[data-bizsim-view="business"] .business-card>img,.content[data-bizsim-view="business"] .business-card>.feature-image{height:132px!important;object-fit:cover;background:#eaf0f7}
+.content[data-bizsim-view="business"] .business-card-body{padding:14px!important;display:flex;flex-direction:column;flex:1}
+.content[data-bizsim-view="business"] .business-card-body>p{min-height:0;line-height:1.5}
+.content[data-bizsim-view="business"] .business-card-foot{margin-top:auto;padding-top:12px}
+/* Career: current job and skills are a compact summary; opportunities get the larger column. */
+.content[data-bizsim-view="career"] .grid.two{grid-template-columns:minmax(280px,.85fr) minmax(0,1.15fr)!important;align-items:start}
+.content[data-bizsim-view="career"] .job-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px}
+.content[data-bizsim-view="career"] .job-card{display:flex;flex-direction:column;border-radius:12px}
+.content[data-bizsim-view="career"] .job-card .art-frame,.content[data-bizsim-view="career"] .job-card>img,.content[data-bizsim-view="career"] .job-card>svg{width:100%;height:94px;min-height:94px;object-fit:cover}
+/* Non-core utility pages should not imitate data-heavy financial pages. */
+.content[data-bizsim-view="calendar"] .page-head .btn[onclick*="Task created"],
+.content[data-bizsim-view="calendar"] .list-item .btn[onclick*="Task updated"]{display:none!important}
+.content[data-bizsim-view="people"] .grid.three .kpi-value{font-variant-numeric:tabular-nums}
+.content button,.content a{transition:background-color .15s,border-color .15s,box-shadow .15s}
+.content button:focus-visible,.content a:focus-visible,.sidebar button:focus-visible{outline:3px solid #85b8fa;outline-offset:2px}
+@media(max-width:1180px){.app-shell{grid-template-columns:210px minmax(0,1fr)!important}.content .grid.four,.content .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.content .grid.three{grid-template-columns:repeat(2,minmax(0,1fr))!important}.content[data-bizsim-view="market"] .grid.three{grid-template-columns:repeat(2,minmax(0,1fr))!important}.content[data-bizsim-view="business"] .business-catalog{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:820px){.app-shell{grid-template-columns:minmax(0,1fr)!important}.sidebar{position:fixed!important;left:0;top:0;transform:translateX(-105%);width:min(84vw,300px)!important;height:100dvh;min-height:100dvh;z-index:80;box-shadow:14px 0 36px #0b1e3533}.sidebar.mobile-open{transform:translateX(0)}.content{padding:16px 13px 88px!important}.topbar{padding:10px 13px!important;min-height:58px!important}.content .grid.two,.content .grid.three,.content .grid.four,.content .kpi-grid,.content[data-bizsim-view="market"] .grid.three,.content[data-bizsim-view="business"] .business-catalog,.content[data-bizsim-view="career"] .grid.two{grid-template-columns:minmax(0,1fr)!important}.content[data-bizsim-view="career"] .job-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.content .page-head{align-items:flex-start;gap:10px}.content .page-head .actions{width:100%}.content .page-head .actions .btn{flex:1}.content .grid.two{gap:12px!important}.content .card{padding:15px!important}.content[data-bizsim-view="dashboard"] .grid.two>.hero{min-height:0}.content[data-bizsim-view="market"] .market-chart{height:150px!important}}
+@media(max-width:460px){.content .kpi-grid,.content .grid.four{grid-template-columns:repeat(2,minmax(0,1fr))!important}.content[data-bizsim-view="career"] .job-grid{grid-template-columns:minmax(0,1fr)!important}.content .kpi{padding:12px!important}.content .kpi-value{font-size:20px!important}.content .page-head h1{font-size:24px!important}.content .page-head .actions{display:grid;grid-template-columns:1fr}.content .detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}

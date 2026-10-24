@@ -118,7 +118,7 @@
 
   /* ---------------- kalender: sumber kejadian nyata dari state ---------------- */
   const TYPES = { school: { n: 'Sekolah', ic: 'cap', c: 'blue' }, pay: { n: 'Gaji', ic: 'coin', c: 'green' }, bill: { n: 'Tagihan', ic: 'wallet', c: 'red' }, deadline: { n: 'Deadline', ic: 'clock', c: 'gold' }, work: { n: 'Kerja', ic: 'briefcase', c: 'navy' }, content: { n: 'Konten', ic: 'video', c: 'teal' } };
-  const employed = () => (S().career || {}).status === 'employed';
+  const employed = () => { const c = S().career || {}; return c.status === 'employed' && Number(c.salary) > 0; };
   const studyOn = () => { const st = S(); return Boolean(((st.v720 || {}).lessons || []).length || ((st.v655 || {}).programs || {}).education || ((st.v655 || {}).programs || {}).training); };
   const events = (from, to) => {
     const out = [], st = S(), car = st.career || {}, V7 = st.v700 || {}, X = st.v720 || {}, V6 = st.v655 || {}, today = L.day, add = (day, type, title, sub) => { if (day >= from && day <= to) out.push({ day, type, title, sub: sub || '' }); };
@@ -135,8 +135,7 @@
     const loans = (Array.isArray(App.state.loans) ? App.state.loans : []).filter(l => l.status === 'pending' && l.remaining > 0);
     if (loans.length) add(today + 1, 'bill', 'Cicilan pinjaman dipotong', `${M(loans.reduce((a, l) => a + Math.min(l.monthly_payment, l.remaining), 0))} setiap pergantian hari`);
     if (employed()) {
-      const dm = CAL().daysPerMonth; add(today + 1, 'pay', 'Gaji harian masuk', `${M(Math.round((car.salary || 0) / 30))} saat pergantian hari`);
-      for (let d = Math.ceil(Math.max(from, today) / dm) * dm; d <= to; d += dm) add(d, 'pay', 'Akhir bulan: gaji bulanan lengkap', `${M(car.salary || 0)} sudah diterima penuh`);
+      add(today + 1, 'pay', 'Gaji harian masuk', `${M(Math.round(Number(car.salary) / 30))} saat pergantian hari berdasarkan kontrak pekerjaan`);
     }
     return out.sort((a, b) => a.day - b.day);
   };
@@ -217,7 +216,7 @@
     for (const e of ev) (by[e.day] ||= []).push(e);
     const head = c.weekdays.map(w => `<div class="v740-dow">${w.slice(0, 3)}</div>`).join('');
     let grid = ''; for (let i = 0; i < cells; i++) { const d = from + i, dd = dateOf(d), other = d < first || d >= first + c.daysPerMonth, es = by[d] || [], past = d < today; grid += `<button class="v740-day ${other ? 'dim' : ''} ${d === today ? 'today' : ''} ${d === L.sel ? 'sel' : ''} ${past ? 'past' : ''} ${dd.weekday === 0 || dd.weekday === 6 ? 'we' : ''}" onclick="App.v740.calSel(${d})" aria-label="Tanggal ${dd.date} bulan ${dd.month}${d === today ? ', hari ini' : ''}"><b>${dd.date}</b><span class="v740-dots">${es.slice(0, 3).map(e => `<i class="${TYPES[e.type].c}"></i>`).join('')}</span>${es.slice(0, 2).map(e => `<em class="${TYPES[e.type].c}">${E(e.title.split(':')[0])}</em>`).join('')}${es.length > 2 ? `<u>+${es.length - 2}</u>` : ''}</button>`; }
-    const sd = dateOf(L.sel), blocks = dayBlocks(L.sel), dayEv = events(L.sel, L.sel).filter(e => e.day === L.sel), salary = employed() ? Math.round((S().career.salary || 0) / 30) : 0, loans = (Array.isArray(App.state.loans) ? App.state.loans : []).filter(l => l.status === 'pending' && l.remaining > 0);
+    const sd = dateOf(L.sel), blocks = dayBlocks(L.sel), dayEv = events(L.sel, L.sel).filter(e => e.day === L.sel), salary = employed() ? Math.round(Number(S().career.salary) / 30) : 0, loans = (Array.isArray(App.state.loans) ? App.state.loans : []).filter(l => l.status === 'pending' && l.remaining > 0);
     const nowIn = b => L.sel === today && L.tod >= b.a && L.tod < b.b;
     const sched = `${blocks.map(b => `<div class="v740-sch ${nowIn(b) ? 'now' : ''}"><span class="t">${clk(b.a, false)}-${clk(b.b, false)}</span><span class="v740-evic ${TYPES[b.ty].c}">${ico(TYPES[b.ty].ic, 14)}</span><b>${E(b.t)}</b>${nowIn(b) ? '<em>Sekarang</em>' : ''}</div>`).join('')}${(salary || loans.length) ? `<div class="v740-sch"><span class="t">00:00</span><span class="v740-evic green">${ico('coin', 14)}</span><b>Pergantian hari</b><small>${salary ? `Gaji ${M(salary)} masuk` : ''}${salary && loans.length ? ' · ' : ''}${loans.length ? 'cicilan pinjaman dipotong' : ''}</small></div>` : ''}${dayEv.map(e => `<div class="v740-sch"><span class="t">Sepanjang hari</span><span class="v740-evic ${TYPES[e.type].c}">${ico(TYPES[e.type].ic, 14)}</span><b>${E(e.title)}</b><small>${E(e.sub)}</small></div>`).join('')}`;
     const upAll = events(today, today + 60).filter(e => L.evf === 'all' || e.type === L.evf), up = upAll.slice(0, 12);

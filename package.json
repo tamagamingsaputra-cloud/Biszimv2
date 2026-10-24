@@ -1,8 +1,8 @@
 {
   "name": "bizsim",
-  "version": "7.5.0",
+  "version": "7.8.1",
   "private": true,
-  "description": "BizSim 6.5.5 — additive update (programs, business upgrades, creator platforms, event-driven investments)",
+  "description": "BizSim AI comparison variant A \u2014 Content Creator Studio UI system and platform-specific career simulation",
   "scripts": {
     "start": "node server/server.js",
     "dev": "node server/server.js",
@@ -13,9 +13,10 @@
     "test:e2e": "node tests/e2e-engine-test.mjs",
     "check:v740": "node --check netlify/functions/v740.mjs && node --check web/v740-clock.js",
     "test:v740": "node tests/v740-clock-test.mjs",
+    "test:v781": "node tests/v781-payroll-calendar-test.mjs",
     "check:v750": "node --check netlify/functions/v750-edu-data.mjs && node --check netlify/functions/v750-edu-bank.mjs && node --check netlify/functions/v750-education.mjs && node --check web/v750-education.js",
     "test:education": "node tests/v750-edu-bank-test.mjs && node tests/v750-education-test.mjs && node tests/v750-education-extra-test.mjs && node tests/v750-education-ui-smoke.mjs",
-    "test:all": "npm run check && npm run check:v740 && npm run check:v750 && npm run test:v740 && npm run test:creator && npm run test:e2e && npm run test:education && npm run test:smoke"
+    "test:all": "npm run check && npm run check:v740 && npm run check:v750 && npm run test:v740 && npm run test:v781 && npm run test:creator && npm run test:e2e && npm run test:education && npm run test:smoke"
   },
   "engines": {
     "node": ">=22.12.0"
