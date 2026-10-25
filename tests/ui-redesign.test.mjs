@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const read = p => fs.readFileSync(path.join(root, p), 'utf8');
+const css = read('public/assets/css/bizsim.css');
+const shell = read('public/assets/js/ui/shell.js');
+const core = read('public/assets/js/engine/core.js');
+const server = read('server/server.cjs');
+const onboarding = read('public/assets/js/ui/onboarding.js');
+const common = read('public/assets/js/pages/studio/common.js');
+const career = read('public/assets/js/pages/career.js');
+for (const module of ['dashboard','market','investments','business','career','education','studio','finance','life','calendar']) {
+  assert.ok(css.includes(`body[data-module="${module}"]`), `tema khusus ${module} tersedia`);
+}
+assert.ok(css.includes('body[data-module="market"] .panel{background:#0D1D30'), 'market memiliki panel navy gelap');
+assert.ok(!css.includes('@import url('), 'font eksternal dihapus agar UI tetap konsisten offline');
+for (let i=1;i<=6;i++) assert.ok(fs.existsSync(path.join(root,`public/assets/img/avatars/avatar-${i}.svg`)), `avatar-${i} tersedia sebagai aset lokal`);
+assert.ok(onboarding.includes('name="avatarId"'), 'pemilih avatar tersedia saat pembuatan dan edit profil');
+assert.ok(server.includes('avatarId: [\'avatar-1\''), 'avatar disimpan pada profil server');
+assert.ok(server.includes("if (b.avatarId !== undefined)"), 'avatar dapat diperbarui melalui API profil');
+assert.ok(core.includes('export const creatorAge = () => ageYears();'), 'kelayakan kreator menggunakan usia karakter asli');
+assert.ok(core.includes('youtube: 13') && core.includes('business: 17') && core.includes('trading: 17'), 'batas usia utama tersedia di engine');
+assert.ok(read('public/assets/js/pages/education.js').includes('Pilih Sekolah Dasar'), 'alur pendidikan mengarahkan pemain ke SD');
+assert.ok(!shell.includes('qa-creator'), 'bypass usia kreator dihapus dari Settings');
+assert.ok(!career.includes("['youtube', 'Kreator · side income'"), 'tab YouTube lama duplikatif dihapus dari halaman karier');
+assert.ok(common.includes("stageKey === 'edit' ? 'scissors'"), 'tahap penyuntingan memakai ikon gunting');
+assert.ok(common.includes("stageKey === 'upload' ? 'upload'"), 'tahap publikasi memakai ikon unggah');
+assert.ok(common.includes("edit: ['Penyuntingan'"), 'status produksi memakai bahasa Indonesia');
+assert.ok(shell.includes("dataset.designSystem = 'v71'"), 'shell menandai desain sistem v7.1');
+console.log('Pemeriksaan UI/sistem v7.1 lulus');

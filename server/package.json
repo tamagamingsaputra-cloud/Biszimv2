@@ -1,0 +1,17 @@
+{
+  "name": "bizsim-server",
+  "version": "7.1.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.cjs",
+    "test": "node ../tests/ui-redesign.test.mjs && node ../tests/calendar.test.mjs && node ../tests/needs.test.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "express": "^5.3.0"
+  }
+}

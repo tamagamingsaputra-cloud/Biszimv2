@@ -1,4 +1,0 @@
-Folder ini untuk gambar/ilustrasi kategori: assets
-Saat ini masih kosong — illustrations.js pakai SVG generated.
-Taruh file .png/.jpg/.svg di sini lalu update illustrations.js
-untuk switch dari SVG generated ke <img src="assets/images/assets/namafile.png">
