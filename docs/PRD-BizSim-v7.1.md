@@ -39,3 +39,10 @@ Menerapkan redesain nyata pada source asli `BizSim.zip`, bukan menyalin struktur
 - UI seluruhnya belum dibuktikan lewat screenshot visual pada perangkat Android fisik.
 - Endpoint profil menggunakan SQLite server yang sudah ada; deployment harus menyediakan server BizSim, bukan hanya hosting file statis.
 - Sebagian teks deskriptif dan istilah platform yang panjang di modul tetap memerlukan review bahasa manual; label utama, navigasi, dan status produksi sudah dilokalkan.
+
+
+## Hotfix deployment v7.1.1
+- Semua halaman web memanggil API melalui origin yang sama saat dihosting.
+- Vercel API adapter memetakan permintaan `/api/*` ke Express API yang sama dengan versi lokal.
+- Perilaku simulasi dan kontrak endpoint tidak diubah.
+- Catatan arsitektur: SQLite di filesystem serverless bersifat sementara; persyaratan database persisten eksternal belum dipenuhi.

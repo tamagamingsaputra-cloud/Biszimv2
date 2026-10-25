@@ -9,3 +9,11 @@
 - Tab kreator YouTube lama yang menduplikasi Creator Studio di halaman karier dihapus; migrasi data lama dipertahankan.
 - Font eksternal dihapus agar tampilan tidak bergantung pada unduhan Google Fonts.
 - Menambahkan tes regresi statis UI.
+
+
+## v7.1.1 — Hotfix koneksi (2026-10-25)
+- API browser menggunakan same-origin di deployment publik, bukan `localhost:8000` milik pengguna.
+- Menambahkan Vercel catch-all API function, konfigurasi deployment, dan `package.json`/lockfile pada root proyek.
+- Server Express diekspor untuk penggunaan lokal dan serverless tanpa menjalankan `listen()` saat diimpor.
+- Menambahkan pengujian statis konfigurasi deployment.
+- Batasan: SQLite pada `/tmp` tidak persisten lintas instance serverless; database eksternal tetap diperlukan untuk progres permanen.

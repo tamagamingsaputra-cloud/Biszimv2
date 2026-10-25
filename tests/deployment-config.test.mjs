@@ -1,0 +1,13 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const api = fs.readFileSync(new URL('../public/assets/js/ui/api.js', import.meta.url), 'utf8');
+const index = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+const route = fs.readFileSync(new URL('../api/[...path].js', import.meta.url), 'utf8');
+const vercel = JSON.parse(fs.readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
+assert.match(api, /localHost \? 'http:\/\/localhost:8000' : ''/);
+assert.doesNotMatch(api, /unresolved \? \(location\.port === '8000' \? '' : 'http:\/\/localhost:8000'\)/);
+assert.match(index, /window\.__API_BASE__ = .*''/);
+assert.match(route, /require\('\.\.\/server\/server\.cjs'\)/);
+assert.equal(vercel.outputDirectory, 'public');
+assert.ok(vercel.functions['api/[...path].js']);
+console.log('Lulus: API publik same-origin; adapter Vercel tersedia; tidak ada fallback localhost untuk situs publik.');

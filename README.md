@@ -95,3 +95,11 @@ Dashboard kini menjadi life hub: profil, jam lengkap, bar 8 kebutuhan tepat di b
 - Bank, dompet digital, kartu, dan QRIS adalah **simulasi dengan merek fiktif** — tidak terhubung ke layanan pembayaran nyata.
 - Usia karakter dimulai 6 tahun: rekening pelajar 6–17, dompet digital 13+, bank umum 17+, kartu kredit 21+.
 - Aturan platform kreator (syarat, potongan, konversi koin) adalah aturan simulasi BizSim, bukan persyaratan resmi platform.
+
+
+## Perbaikan koneksi v7.1.1
+
+- API client tidak lagi mengarahkan pengunjung situs publik ke `http://localhost:8000`.
+- Ditambahkan adapter Vercel `api/[...path].js` dan `vercel.json`; API menggunakan origin yang sama (`/api/*`).
+- Untuk menjalankan lokal di Termux: `cd BizSim-v7.1/server && npm ci && npm start`, lalu buka `http://127.0.0.1:8000`. Jangan membuka `public/index.html` langsung dari file manager.
+- **Batasan penting:** adapter Vercel saat ini menggunakan SQLite di `/tmp`, yang tidak persisten dan dapat hilang saat instance serverless diganti. Ini menghilangkan kegagalan koneksi dasar, tetapi bukan penyimpanan produksi yang aman. Untuk progres permanen di Vercel, database persisten eksternal perlu dikonfigurasi.

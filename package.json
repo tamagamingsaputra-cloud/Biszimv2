@@ -1,0 +1,20 @@
+{
+  "name": "bizsim-v7-1",
+  "version": "7.1.1",
+  "private": true,
+  "description": "BizSim v7.1.1 frontend and Vercel API adapter",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server/server.cjs",
+    "test:ui": "node tests/ui-redesign.test.mjs",
+    "test:calendar": "node tests/calendar.test.mjs",
+    "test:needs": "node tests/needs.test.mjs",
+    "test:deploy": "node tests/deployment-config.test.mjs"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "express": "^5.3.0"
+  }
+}

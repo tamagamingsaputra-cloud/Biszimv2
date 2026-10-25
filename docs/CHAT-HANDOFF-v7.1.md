@@ -14,3 +14,7 @@ UI statis lulus; kalender 23 tes lulus; kebutuhan 13 tes lulus; syntax-check sem
 2. Jalankan `npm test` dari `server/` dan `node ../tests/finance.test.mjs` bila dependency terpasang.
 3. Jalankan server dan cek dashboard, market, investments, business, career, education, profile/avatar, calendar, life, finance, dan Creator Studio pada viewport Android 360×800 dan desktop 1366×900.
 4. Perbaiki setiap clipping/overflow yang terlihat; jangan hapus engine yang masih digunakan oleh save lama.
+
+
+## Insiden koneksi publik — v7.1.1
+Screenshot pengguna memperlihatkan aplikasi di Vercel gagal menghubungi server karena API client fallback ke `http://localhost:8000`. Hotfix mengubah API publik ke same-origin, menambahkan `api/[...path].js`, `vercel.json`, dan root `package.json`/lockfile. Uji statis dan regression UI/calendar/needs lulus. Dependency install timeout, deployment aktual belum dites. Database API adapter sementara memakai `/tmp/bizsim.db`; jangan menjanjikan progres permanen pada Vercel sampai database eksternal persisten dikonfigurasi. Jalankan lokal dengan `cd server && npm ci && npm start`, lalu buka `http://127.0.0.1:8000`.

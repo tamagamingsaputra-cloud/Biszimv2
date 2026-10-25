@@ -1,6 +1,6 @@
 {
   "name": "bizsim-server",
-  "version": "7.1.0",
+  "version": "7.1.1",
   "main": "index.js",
   "scripts": {
     "start": "node server.cjs",
