@@ -2,6 +2,22 @@
   "version": 2,
   "outputDirectory": "public",
   "functions": {
-    "api/[...path].js": { "includeFiles": "server/**" }
-  }
+    "api/[...path].js": {
+      "includeFiles": "server/**"
+    },
+    "api/index.js": {
+      "includeFiles": "server/**"
+    }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
+      ]
+    }
+  ]
 }

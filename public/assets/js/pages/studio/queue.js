@@ -1,4 +1,4 @@
-// Antrean Produksi · Konten Terbit · detail konten
+// Production Queue · Published Content · detail konten
 import { E, C, CR, PLATFORMS, STAGES, fN, fInt, fPct, fDur, fHours, fmtG, fmtDay, pIcon, pName, fmtName, nName, thumb, statusChip, primary, momChip, momentumOf, res, progress, stagePills, emptyBox, kpi, rp, rpShort, gOfDay, T } from './common.js';
 import { icon, esc, openDialog, lineChart, sparkline } from '../../ui/ui.js';
 
@@ -83,7 +83,7 @@ function reviewDialog(id) {
   } });
 }
 
-// ————————————————————————— Konten Terbit —————————————————————————
+// ————————————————————————— Published Content —————————————————————————
 const PF = { p: 'all', f: 'all', sort: 'new' };
 export function published() {
   const c = C();
@@ -95,7 +95,7 @@ export function published() {
   list.sort(PF.sort === 'top' ? (a, b) => primary(b)[1] - primary(a)[1] : PF.sort === 'hot' ? (a, b) => last(b) - last(a) : (a, b) => b.publishedG - a.publishedG);
   const chips = (key, opts) => `<div class="seg" role="group">${opts.map(([v, l]) => `<button class="${PF[key] === v ? 'on' : ''}" data-pf="${key}" data-v="${v}">${l}</button>`).join('')}</div>`;
   const flags = k => [k.flags.claimed && '<span class="chip neg">Klaim hak cipta</span>', k.flags.muted && '<span class="chip neg">Audio dibisukan</span>', k.flags.misleading && '<span class="chip neg">Dinilai menyesatkan</span>', k.flags.strike && '<span class="chip neg">Strike</span>', k.sponsorContract && '<span class="chip">Bersponsor</span>', k.expired && '<span class="chip">Kedaluwarsa</span>', k.premiere && '<span class="chip">Premiere</span>'].filter(Boolean).join(' ');
-  const html = `<section class="panel"><div class="panel-h wrap" style="gap:10px"><h2>Konten Terbit</h2><div class="row wrap" style="gap:8px">${chips('p', [['all', 'Semua'], ...pids.map(p => [p, pName(p)])])}${PF.p !== 'all' ? chips('f', [['all', 'Semua format'], ...fmts.map(f => [f, fmtName(PF.p, f)])]) : ''}${chips('sort', [['new', 'Terbaru'], ['top', 'Terbanyak'], ['hot', 'Ramai kemarin']])}</div></div>
+  const html = `<section class="panel"><div class="panel-h wrap" style="gap:10px"><h2>Published Content</h2><div class="row wrap" style="gap:8px">${chips('p', [['all', 'Semua'], ...pids.map(p => [p, pName(p)])])}${PF.p !== 'all' ? chips('f', [['all', 'Semua format'], ...fmts.map(f => [f, fmtName(PF.p, f)])]) : ''}${chips('sort', [['new', 'Terbaru'], ['top', 'Terbanyak'], ['hot', 'Ramai kemarin']])}</div></div>
     ${list.length ? `<div class="table-wrap"><table class="table pub-table"><thead><tr><th>Konten</th><th class="r">Metrik utama</th><th class="r">Kemarin</th><th>Arah</th><th class="hide-m">Tren harian</th><th class="r hide-m">Estimasi pendapatan</th></tr></thead><tbody>
       ${list.slice(0, 80).map(k => { const [l, v] = primary(k); return `<tr data-go="${k.id}" tabindex="0"><td><div class="row" style="gap:10px">${thumb(k, 44)}<div class="clip"><a href="#content/${k.id}"><b>${esc(k.title)}</b></a><div class="subtle s">${pName(k.platform)} · ${fmtName(k.platform, k.format)} · ${fmtG(k.publishedG, true)}</div>${flags(k) ? `<div class="row wrap" style="gap:4px;margin-top:3px">${flags(k)}</div>` : ''}</div></div></td><td class="r num">${fInt(v)}<div class="subtle s">${l}</div></td><td class="r num">${fInt(last(k))}</td><td>${momChip(momentumOf(k))}</td><td class="hide-m">${sparkline(k.hist.slice(-21).map(h => [h[0], h[1]]), 90, 26)}</td><td class="r num hide-m">${k.m.rev ? rp(k.m.rev) : '—'}</td></tr>`; }).join('')}</tbody></table></div>
       <p class="subtle s" style="margin:8px 14px 12px">“Kemarin” = tambahan hari simulasi terakhir yang tersimpan. Views/plays dan reach adalah metrik berbeda; lihat definisi di halaman platform.</p>`
@@ -121,7 +121,7 @@ export function metricCards(k) {
 export function contentDetail({ route }) {
   const c = C(), k = c.contents.find(x => x.id === +route[1]);
   if (!k) return { html: emptyBox('Konten tidak ditemukan', '', '<a class="btn sm" href="#published">Kembali</a>') };
-  if (k.status !== 'published') return { html: `<a class="btn sm ghost" href="#queue">Antrean Produksi</a><section class="panel" style="margin-top:12px"><div class="panel-b">${emptyBox(k.title, `Status: ${statusChip(k)} — analytics tersedia setelah terbit.`)}</div></section>` };
+  if (k.status !== 'published') return { html: `<a class="btn sm ghost" href="#queue">Production Queue</a><section class="panel" style="margin-top:12px"><div class="panel-b">${emptyBox(k.title, `Status: ${statusChip(k)} — analytics tersedia setelah terbit.`)}</div></section>` };
   const P = PLATFORMS[k.platform], f = P.formats[k.format], [pl, pv] = primary(k);
   const src = k.m.src, srcT = Math.max(1, sum(Object.values(src), x => x)), SL = SRC[k.platform];
   const peers = c.contents.filter(x => x.status === 'published' && x.platform === k.platform && x.format === k.format && x.id !== k.id);
@@ -130,7 +130,7 @@ export function contentDetail({ route }) {
   const age = E.dayNow() - (Math.floor(k.publishedG / T) - 14);
   const peerAt = peers.filter(x => x.hist.length >= Math.min(age, 60)).map(x => sum(x.hist.slice(0, Math.min(age, 60)), h => h[1])).filter(x => x > 0);
   const flagsMsg = [k.flags.claimed && 'Klaim hak cipta (simulasi): pendapatan iklan video ini dialihkan ke pemilik lagu.', k.flags.muted && 'Audio dibisukan karena lagu tanpa lisensi — retensi turun.', k.flags.misleading && 'Banyak penonton menilai judul menyesatkan: retensi & reputasi turun.', k.flags.strike && 'Konten ini menyebabkan strike pada akun.', k.flags.disclosure && 'Konten bersponsor tanpa label kerja sama.', k.expired && 'Story sudah kedaluwarsa (24 jam).'].filter(Boolean);
-  const html = `<a class="btn sm ghost" href="#published">${icon('arrowR', 'style="transform:rotate(180deg)"')}Konten Terbit</a>
+  const html = `<a class="btn sm ghost" href="#published">${icon('arrowR', 'style="transform:rotate(180deg)"')}Published Content</a>
   <section class="panel" style="margin-top:12px"><div class="panel-h wrap" style="gap:10px"><div class="row" style="gap:12px;align-items:flex-start">${thumb(k, 80)}<div><h2 style="margin:0">${esc(k.title)}</h2><div class="subtle s">${pIcon(k.platform, 10)} ${pName(k.platform)} · ${f.name} · ${nName(k.niche)} · terbit ${fmtG(k.publishedG)}${k.premiere ? ' · Premiere' : ''}</div><div style="margin-top:6px">${momChip(momentumOf(k))}</div></div></div><button class="btn sm" data-dup="${k.id}">${icon('copy')}Gandakan konsep</button></div>
     <div class="panel-b">${flagsMsg.length ? `<div class="msg warn" style="margin-bottom:12px">${icon('alert')}<span>${flagsMsg.map(esc).join('<br>')}</span></div>` : ''}<div class="kpis">${metricCards(k)}</div>
     <h3 style="margin:16px 0 6px">${pl} per hari</h3><div class="chart" id="ct-chart"></div><p class="subtle s" style="margin:6px 0 0">Data harian tersimpan (hari berjalan belum masuk grafik). Tayangan bisa naik lagi bila konten direkomendasikan ulang atau dicari.</p></div></section>
@@ -138,7 +138,7 @@ export function contentDetail({ route }) {
     <section class="panel"><div class="panel-h"><h2>Sumber jangkauan</h2></div><div class="panel-b stack" style="gap:8px">${Object.entries(src).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).map(([s, v]) => `<div><div class="row between s"><span>${SL[s] || s}</span><span class="num">${fPct(v / srcT, 0)}</span></div><div class="bar"><i style="width:${v / srcT * 100}%"></i></div></div>`).join('') || '<p class="subtle" style="margin:0">Belum ada data.</p>'}</div></section>
     <section class="panel"><div class="panel-h"><h2>Skor mutu akhir</h2></div><div class="panel-b">${k.q ? qualityBars(k.q) : '—'}</div></section>
     <section class="panel"><div class="panel-h"><h2>Dibanding konten serupa</h2><span class="subtle s">${pName(k.platform)} ${f.name}</span></div><div class="panel-b">${pvals.length ? `<dl class="dl"><dt>Konten pembanding</dt><dd>${pvals.length}</dd><dt>Rata-rata ${pl.toLowerCase()}</dt><dd class="num">${fInt(avgP)}</dd><dt>Median</dt><dd class="num">${fInt(med)}</dd><dt>Konten ini</dt><dd class="num">${fInt(pv)} (${avgP ? `${pv >= avgP ? '+' : ''}${Math.round((pv / avgP - 1) * 100)}% dari rata-rata` : '—'})</dd><dt>Peringkat</dt><dd>${rank} dari ${pvals.length + 1}</dd>${peerAt.length ? `<dt>Rata-rata pembanding di umur ${Math.min(age, 60)} hari</dt><dd class="num">${fInt(sum(peerAt, x => x) / peerAt.length)}</dd>` : ''}</dl>` : '<p class="subtle" style="margin:0">Belum ada konten lain dengan platform & format yang sama untuk dibandingkan.</p>'}</div></section>
-    <section class="panel"><div class="panel-h"><h2>Pendapatan konten</h2></div><div class="panel-b"><dl class="dl"><dt>Estimasi iklan / program</dt><dd class="num">${rp(k.m.rev)}</dd>${k.affiliate ? `<dt>Penjualan affiliate</dt><dd class="num">${fInt(k.m.affSales)} item · komisi ${rp(k.m.affComm)}</dd>` : ''}<dt>Biaya produksi</dt><dd class="num">${rp(k.costSpent)}</dd><dt>Selisih (estimasi)</dt><dd class="num ${k.m.rev + (k.m.affComm || 0) - k.costSpent >= 0 ? 'pos' : 'neg'}">${rp(k.m.rev + (k.m.affComm || 0) - k.costSpent)}</dd></dl><p class="subtle s" style="margin:6px 0 0">Estimasi belum final; jumlah diterima muncul di Monetisasi setelah finalisasi & pembayaran.${k.sponsorContract ? ' Fee sponsor dicatat per kontrak.' : ''}</p></div></section>
+    <section class="panel"><div class="panel-h"><h2>Pendapatan konten</h2></div><div class="panel-b"><dl class="dl"><dt>Estimasi iklan / program</dt><dd class="num">${rp(k.m.rev)}</dd>${k.affiliate ? `<dt>Penjualan affiliate</dt><dd class="num">${fInt(k.m.affSales)} item · komisi ${rp(k.m.affComm)}</dd>` : ''}<dt>Biaya produksi</dt><dd class="num">${rp(k.costSpent)}</dd><dt>Selisih (estimasi)</dt><dd class="num ${k.m.rev + (k.m.affComm || 0) - k.costSpent >= 0 ? 'pos' : 'neg'}">${rp(k.m.rev + (k.m.affComm || 0) - k.costSpent)}</dd></dl><p class="subtle s" style="margin:6px 0 0">Estimasi belum final; jumlah diterima muncul di Monetization setelah finalisasi & pembayaran.${k.sponsorContract ? ' Fee sponsor dicatat per kontrak.' : ''}</p></div></section>
   </div>`;
   return { html, mount: el => {
     const ch = el.querySelector('#ct-chart'), ser = k.hist.map(h => [h[0], h[1]]);

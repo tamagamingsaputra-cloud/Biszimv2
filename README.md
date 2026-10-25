@@ -1,17 +1,14 @@
-# BizSim v7.1 — Update Besar UI/UX & Sistem (Prototype Interaktif)
+# BizSim — Rancangan UI/UX (Prototype Interaktif)
 
 Prototype UI/UX BizSim berdasarkan Master UI/UX Design System (Navy `#0E2A47`, White `#FFFFFF`, Blue-Gray `#DDE5EC`, Financial Green `#2ECC71`, Financial Red `#E74C3C`). Navigasi global dipertahankan dan ditambah satu menu: Dashboard, **Education**, Asset Market, Investments, Business, Career & Jobs.
 
-Semua angka berasal dari simulation engine yang deterministik (seed + state). UI tidak membuat angka acak, dan tidak ada data harga live. Tema per halaman, ikon SVG konsisten, avatar karakter lokal, dan status antarmuka berbahasa Indonesia termasuk dalam paket v7.1. Pendidikan (pendaftaran, biaya, kehadiran, ujian, penilaian, ijazah) diproses dan disimpan di **server**.
+Semua angka berasal dari simulation engine yang deterministik (seed + state). UI tidak membuat angka acak, dan tidak ada data harga live. Pendidikan (pendaftaran, biaya, kehadiran, ujian, penilaian, ijazah) diproses dan disimpan di **server**.
 
 ## Struktur folder
 
 ```
 BizSim/
 ├── README.md
-├── docs/PRD-BizSim-v7.1.md     PRD update besar, aturan usia, UI per halaman, dan acceptance criteria
-├── docs/QA-REPORT-v7.1.md      Hasil tes yang dijalankan dan batasan verifikasi visual
-├── docs/CHANGELOG-v7.1.md     Daftar perubahan
 ├── docs/DESIGN-SPEC.md         Spesifikasi desain per halaman + sistem pendidikan
 ├── docs/CREATOR-STUDIO.md      Content Creator Studio: capability matrix, alur, model distribusi, status uji
 ├── docs/CLOCK-CALENDAR.md      Simulation clock & kalender game: aturan, kecepatan, agenda, uji
@@ -45,14 +42,12 @@ BizSim/
             └── pages/          Satu modul per halaman
 ```
 
-## Menjalankan dan menguji
+## Menjalankan
 
 ```bash
-cd BizSim-v7.1/server
-npm ci
-npm start               # http://localhost:8000
-npm test                # tes UI statis, kalender, dan kebutuhan
-node ../tests/finance.test.mjs  # membutuhkan server dan dependency terpasang
+cd BizSim/server
+npm install
+node server.cjs          # http://localhost:8000
 ```
 
 Variabel opsional: `PORT` (default 8000), `BIZSIM_DB` (default `server/bizsim.db`). Pemain diidentifikasi lewat header `X-Visitor-Id` (saat hosting) atau `?visitor=<id>` di URL saat uji lokal.
@@ -74,16 +69,17 @@ Karier kreator opsional (YouTube, TikTok, Instagram versi simulasi; Twitch & Fac
 
 ## Navigasi
 
-Sidebar desktop dikelompokkan (Hidup · Uang & Aset · Karier & Ilmu). Di Android, bottom nav berisi Beranda, Hidup, Uang, Kalender, dan **Menu** — Menu membuka lembar "Semua fitur" dengan tautan langsung ke setiap bagian (mis. Keuangan → Tagihan Kartu). Setiap modul punya warna aksen sendiri (`data-module` di `<body>`), dengan palet BizSim tetap sebagai dasar.
+Sidebar desktop dikelompokkan (Hidup · Uang & Aset · Karier & Ilmu). Di Android, bottom nav berisi Home, Hidup, Uang, Kalender, dan **Menu** — Menu membuka lembar "Semua fitur" dengan tautan langsung ke setiap bagian (mis. Keuangan → Tagihan Kartu). Setiap modul punya warna aksen sendiri (`data-module` di `<body>`), dengan palet BizSim tetap sebagai dasar.
 
 ## Kehidupan & keuangan
 
 Dashboard kini menjadi life hub: profil, jam lengkap, bar 8 kebutuhan tepat di bawah profil, saldo tunai/rekening/dompet/utang, aktivitas berlangsung, aksi cepat (dengan alasan bila tidak bisa), jadwal terdekat, dan notifikasi. Aturan kebutuhan: `docs/LIFE-NEEDS.md`. Keuangan pribadi (server-authoritative): `docs/FINANCE.md`.
 
-## Pengaturan
+## Settings (alat uji)
 
-- **Buat karakter baru** — memulai dunia simulasi baru untuk pengunjung ini.
-- Tidak ada toggle publik yang dapat melewati pembatasan usia kreator; usia dihitung langsung dari tanggal lahir dan waktu simulasi. Alat percepatan waktu untuk QA tidak ditampilkan pada UI pemain.
+- **Buat karakter baru** — menghapus karakter & catatan pendidikan pengunjung ini di server.
+- **Lewati 7 / 28 hari** — mempercepat waktu untuk QA. Ujian yang terlewat bernilai 0 (tidak ada nilai gratis). Dinonaktifkan selama live.
+- **Mode uji usia kreator** — Creator Studio menganggap karakter berusia 18 tahun agar fitur kreator bisa diuji tanpa menunggu bertahun-tahun game. Banner peringatan tampil selama aktif.
 
 ## Batasan prototype
 
@@ -95,3 +91,10 @@ Dashboard kini menjadi life hub: profil, jam lengkap, bar 8 kebutuhan tepat di b
 - Bank, dompet digital, kartu, dan QRIS adalah **simulasi dengan merek fiktif** — tidak terhubung ke layanan pembayaran nyata.
 - Usia karakter dimulai 6 tahun: rekening pelajar 6–17, dompet digital 13+, bank umum 17+, kartu kredit 21+.
 - Aturan platform kreator (syarat, potongan, konversi koin) adalah aturan simulasi BizSim, bukan persyaratan resmi platform.
+
+
+## Vercel deployment notes (v7.1.0)
+
+The static frontend is served from `public/`; `/api/*` is routed through `api/[...path].js` to the existing Express API. The API uses `/tmp/bizsim.db` when `VERCEL` is set so the SQLite file is writable inside a function. **This is only a connectivity/runtime adapter: `/tmp` is ephemeral and serverless instances may not share it, so it is not durable player storage.** Do not treat this as production persistence. For persistent player saves on Vercel, migrate the database layer to a managed persistent database before public release.
+
+The avatar picker currently saves locally in the browser and is not synced across devices. The Creator Studio QA age bypass was removed; age eligibility now uses the character's simulated age.

@@ -3,7 +3,7 @@ import { mountShell } from '../ui/shell.js';
 import { rp, rpShort, pct, delta, cls, arrow, icon, empty, barChart, lineChart, esc, $, $$, toast, fmtDate, num, openDialog, skillLabel } from '../ui/ui.js';
 
 const lossTxt = p => p < 0.05 ? '<5% di model (tidak termasuk stok habis/kas kurang)' : pct(p, 0, false);
-const page = await mountShell('business', 'Bisnis');
+const page = await mountShell('business', 'Business');
 const IMG = id => `assets/img/business/${id}.webp`;
 let view = E.S.businesses.some(b => b.status === 'buka') ? 'mine' : 'catalog';
 let filter = { sector: 'all', onlyOpen: false, sort: 'capex' };
@@ -17,7 +17,7 @@ style.textContent = `.op-grid{display:grid;grid-template-columns:220px minmax(0,
 @media(max-width:860px){.op-grid{grid-template-columns:1fr}.op-list{display:flex;overflow-x:auto}.op-list .biz-pick{min-width:200px;border-right:1px solid var(--border)}}`;
 document.head.appendChild(style);
 
-page.innerHTML = `<div class="page-head"><div><p>Pilih bisnis berdasarkan modal, syarat, kapasitas, dan risiko. Semua estimasi berasal dari business engine dengan asumsi yang ditampilkan — tidak ada keuntungan yang dijamin.</p></div><span class="sim-badge">SIMULASI</span></div>
+page.innerHTML = `<div class="page-head"><div><p>Pilih bisnis berdasarkan modal, syarat, kapasitas, dan risiko. Semua estimasi berasal dari business engine dengan asumsi yang ditampilkan — tidak ada keuntungan yang dijamin.</p></div><span class="sim-badge">Simulated</span></div>
 <div class="tabs" role="tablist" id="vtabs"></div><div id="vbody" style="margin-top:16px"></div>`;
 
 function renderTabs() {

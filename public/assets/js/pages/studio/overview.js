@@ -1,4 +1,4 @@
-// Ringkasan · Kanal & Akun · detail platform · Perencana Konten
+// Overview · Channels & Accounts · detail platform · Content Planner
 import { E, C, PRE, CR, PLATFORMS, NICHES, ACTIVE_PLATFORMS, fN, fInt, fPct, fmtG, fmtDay, pIcon, pName, fmtName, nName, thumb, statusChip, primary, momChip, momentumOf, res, progress, emptyBox, kpi, accounts, ageNow, rp, rpShort, gOfDay, T } from './common.js';
 import { icon, esc, lineChart, openDialog } from '../../ui/ui.js';
 import { bestHours, trendEvent, competition } from '../../engine/creator/audience.js';
@@ -52,14 +52,14 @@ export function overview() {
     ${kpi('Biaya kreator (30 hari)', rp(m.cost), `Produksi & live ${rpShort(m.prodCost)} · Alat, kelas, langganan ${rpShort(m.gearCost)}`)}
   </div>
   <div class="grid st-ov">
-    <section class="panel"><div class="panel-h"><h2>Konten dalam proses</h2><a class="btn sm" href="#queue">Antrean Produksi ${icon('arrowR')}</a></div><div class="panel-b stack" style="gap:10px">
+    <section class="panel"><div class="panel-h"><h2>Konten dalam proses</h2><a class="btn sm" href="#queue">Production Queue ${icon('arrowR')}</a></div><div class="panel-b stack" style="gap:10px">
       ${inProd.length || ready.length ? [...inProd.slice(0, 4).map(k => `<a class="q-mini" href="#queue">${thumb(k, 44)}<div class="grow"><div class="row between"><b class="clip">${esc(k.title)}</b>${statusChip(k)}</div>${progress(k)}<div class="subtle s">${Math.round(k.hoursDone / k.hoursTotal * 100)}% · ${pName(k.platform)} ${fmtName(k.platform, k.format)} · ${eta[k.id] ? `selesai ±${fmtG(eta[k.id], true)}` : 'ETA > 21 hari / terhambat'}${k.wait ? ` · ${esc(k.wait)}` : ''}</div></div></a>`),
-        ...ready.slice(0, 3).map(k => `<a class="q-mini" href="#queue">${thumb(k, 44)}<div class="grow"><div class="row between"><b class="clip">${esc(k.title)}</b>${statusChip(k)}</div><div class="subtle s">Siap terbit — review lalu publikasikan atau jadwalkan.</div></div></a>`)].join('') : emptyBox('Belum ada konten diproduksi', 'Mulai dari Buat Konten.', `<a class="btn sm primary" href="#create">${icon('edit')}Buat konten</a>`)}
+        ...ready.slice(0, 3).map(k => `<a class="q-mini" href="#queue">${thumb(k, 44)}<div class="grow"><div class="row between"><b class="clip">${esc(k.title)}</b>${statusChip(k)}</div><div class="subtle s">Siap terbit — review lalu publikasikan atau jadwalkan.</div></div></a>`)].join('') : emptyBox('Belum ada konten diproduksi', 'Mulai dari Create Content.', `<a class="btn sm primary" href="#create">${icon('edit')}Buat konten</a>`)}
     </div></section>
     <section class="panel"><div class="panel-h"><h2>Jadwal 7 hari</h2><a class="btn sm" href="#planner">Planner ${icon('arrowR')}</a></div><div class="panel-b">
-      ${sched.length ? `<ul class="agenda">${sched.slice(0, 7).map(s => `<li><span class="when num">${fmtG(s.g, true)}</span><span class="grow">${s.icon ? icon(s.icon) : ''}${esc(s.text)}</span></li>`).join('')}</ul>` : emptyBox('Tidak ada jadwal', 'Jadwalkan konten atau live dari Buat Konten / Studio Siaran.')}
+      ${sched.length ? `<ul class="agenda">${sched.slice(0, 7).map(s => `<li><span class="when num">${fmtG(s.g, true)}</span><span class="grow">${s.icon ? icon(s.icon) : ''}${esc(s.text)}</span></li>`).join('')}</ul>` : emptyBox('Tidak ada jadwal', 'Jadwalkan konten atau live dari Create Content / Live Studio.')}
     </div></section>
-    <section class="panel"><div class="panel-h"><h2>Live</h2><a class="btn sm" href="#live">Studio Siaran ${icon('arrowR')}</a></div><div class="panel-b">
+    <section class="panel"><div class="panel-h"><h2>Live</h2><a class="btn sm" href="#live">Live Studio ${icon('arrowR')}</a></div><div class="panel-b">
       ${L ? `<div class="row" style="gap:10px"><span class="live-dot"></span><div><b>Sedang live di ${pName(L.platform)}</b><div class="subtle">${L.minute} menit · ${Math.round(L.ccv)} menonton · ${fInt(L.unique)} penonton unik</div></div></div>`
         : nextLive ? `<div><b>Terjadwal:</b> ${esc(nextLive.title)}<div class="subtle">${pName(nextLive.platform)} · ${fmtG(nextLive.at)}</div></div>`
         : `<p class="subtle" style="margin:0">Tidak ada live aktif atau terjadwal.</p>${c.lives[0] ? `<p class="subtle s" style="margin:6px 0 0">Live terakhir: ${esc(c.lives[0].title)} — puncak ${fInt(c.lives[0].peak)} penonton.</p>` : ''}`}
@@ -102,7 +102,7 @@ function upcoming(days) {
   return out.filter(s => s.g >= g0 - 1).sort((a, b) => a.g - b.g);
 }
 
-// ————————————————————————— Kanal & Akun —————————————————————————
+// ————————————————————————— Channels & Accounts —————————————————————————
 export function accountsView() {
   const c = C(), mat = capabilityMatrix(), cols = Object.values(PLATFORMS);
   const card = P => {
@@ -147,7 +147,7 @@ const fitWord = v => v >= 1.2 ? 'tinggi' : v >= 1 ? 'baik' : v >= 0.85 ? 'sedang
 export function accountDetail({ route }) {
   const pid = route[1], P = PLATFORMS[pid], c = C(), acc = c.accounts[pid];
   if (!P) return { html: emptyBox('Platform tidak ditemukan', '<a href="#accounts">Kembali</a>') };
-  const back = `<a class="btn sm ghost" href="#accounts">${icon('arrowR', 'style="transform:rotate(180deg)"')}Kanal & Akun</a>`;
+  const back = `<a class="btn sm ghost" href="#accounts">${icon('arrowR', 'style="transform:rotate(180deg)"')}Channels & Accounts</a>`;
   const defs = Object.values(P.metricDefs || {}).map(t => { const [k, ...r] = t.split(':'); return `<dt>${esc(k)}</dt><dd>${esc(r.join(':').trim())}</dd>`; }).join('');
   const fmts = Object.entries(P.formats).map(([fid, f]) => {
     const locks = acc ? CR.formatLocksFor(pid, fid) : [];
@@ -177,7 +177,7 @@ export function accountDetail({ route }) {
 }
 export const progChip = p => p.status === 'active' ? '<span class="chip pos">Aktif</span>' : p.status === 'review' ? '<span class="chip info">Ditinjau</span>' : p.status === 'eligible' ? '<span class="chip pos">Syarat terpenuhi</span>' : p.status === 'suspended' ? '<span class="chip neg">Ditangguhkan</span>' : p.status === 'off' ? '<span class="chip">Dinonaktifkan</span>' : p.status === 'region' ? '<span class="chip">Tidak tersedia di wilayah simulasi</span>' : `<span class="chip">Terkunci · ${p.reqs.filter(r => r.met).length}/${p.reqs.length}</span>`;
 
-// ————————————————————————— Perencana Konten —————————————————————————
+// ————————————————————————— Content Planner —————————————————————————
 export function planner() {
   const c = C(), d0 = E.dayNow(), seed = E.S.seed, accs = accounts();
   const pids = accs.length ? accs.map(a => a.id) : ACTIVE_PLATFORMS;
@@ -200,7 +200,7 @@ export function planner() {
       <p class="subtle s" style="margin:8px 14px 12px">1,00 = minat normal; persen = perubahan 7 hari. Tren menaikkan peluang jangkauan, tetapi <b>tidak ada topik yang menjamin viral</b> — kualitas, kecocokan, dan persaingan tetap menentukan.</p></section>
     <section class="panel"><div class="panel-h"><h2>Jam aktif audiens</h2></div><div class="panel-b stack" style="gap:10px">${pids.map(pid => `<div><div class="row" style="gap:8px">${pIcon(pid, 14)}<b>${pName(pid)}</b></div><div class="subtle s" style="margin-top:4px">Paling ramai: ${bestHours(pid, 3).map(h => `${String(h).padStart(2, '0')}.00`).join(', ')}</div></div>`).join('')}
       <p class="subtle s" style="margin:0">Pola aktivitas simulasi. Posting saat sepi mengurangi dorongan awal, tetapi konten bagus tetap bisa tumbuh belakangan.</p></div></section>
-    <section class="panel st-wide"><div class="panel-h"><h2>Draft</h2><span class="subtle s">${drafts.length} draft</span></div>${drafts.length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Konsep</th><th>Platform</th><th>Diubah</th><th class="r">Aksi</th></tr></thead><tbody>${drafts.map(k => `<tr><td><div class="row" style="gap:10px">${thumb(k, 40)}<span class="clip">${esc(k.title || '(tanpa judul)')}<br><span class="subtle s">${nName(k.niche)}</span></span></div></td><td>${pName(k.platform)} ${fmtName(k.platform, k.format)}</td><td class="subtle s">${fmtG(k.createdG, true)}</td><td class="r"><div class="row" style="gap:6px;justify-content:flex-end"><a class="btn sm primary" href="#create/draft/${k.id}">Lanjutkan</a><button class="btn sm" data-dup="${k.id}" title="Gandakan konsep">${icon('copy')}</button><button class="btn sm" data-del="${k.id}" title="Hapus draft" aria-label="Hapus draft">${icon('trash')}</button></div></td></tr>`).join('')}</tbody></table></div>` : `<div class="panel-b">${emptyBox('Belum ada draft', 'Simpan ide dari Buat Konten untuk dilanjutkan nanti.')}</div>`}</section>
+    <section class="panel st-wide"><div class="panel-h"><h2>Draft</h2><span class="subtle s">${drafts.length} draft</span></div>${drafts.length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Konsep</th><th>Platform</th><th>Diubah</th><th class="r">Aksi</th></tr></thead><tbody>${drafts.map(k => `<tr><td><div class="row" style="gap:10px">${thumb(k, 40)}<span class="clip">${esc(k.title || '(tanpa judul)')}<br><span class="subtle s">${nName(k.niche)}</span></span></div></td><td>${pName(k.platform)} ${fmtName(k.platform, k.format)}</td><td class="subtle s">${fmtG(k.createdG, true)}</td><td class="r"><div class="row" style="gap:6px;justify-content:flex-end"><a class="btn sm primary" href="#create/draft/${k.id}">Lanjutkan</a><button class="btn sm" data-dup="${k.id}" title="Gandakan konsep">${icon('copy')}</button><button class="btn sm" data-del="${k.id}" title="Hapus draft" aria-label="Hapus draft">${icon('trash')}</button></div></td></tr>`).join('')}</tbody></table></div>` : `<div class="panel-b">${emptyBox('Belum ada draft', 'Simpan ide dari Create Content untuk dilanjutkan nanti.')}</div>`}</section>
   </div>`;
   return { html, mount: el => el.addEventListener('click', e => {
     const dp = e.target.closest('[data-dup]'); if (dp) return res(CR.duplicate(+dp.dataset.dup));

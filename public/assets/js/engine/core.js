@@ -520,7 +520,6 @@ export function scheduleOf(d) {
   return { school, work };
 }
 export const energy = () => S.player.energy ?? 100;
-// Batas usia kreator selalu memakai usia karakter simulasi; tidak ada bypass di UI produksi.
 export const creatorAge = () => ageYears();
 
 // ————————————————————————— TRADING (Asset Market) —————————————————————————

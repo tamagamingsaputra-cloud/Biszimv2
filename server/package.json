@@ -1,10 +1,9 @@
 {
-  "name": "bizsim-server",
-  "version": "7.1.0",
+  "name": "server",
+  "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "node server.cjs",
-    "test": "node ../tests/ui-redesign.test.mjs && node ../tests/calendar.test.mjs && node ../tests/needs.test.mjs"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",

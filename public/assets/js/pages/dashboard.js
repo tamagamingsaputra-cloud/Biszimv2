@@ -8,8 +8,8 @@ import { needTiles } from '../ui/needs-ui.js';
 import { editProfile } from '../ui/onboarding.js';
 import { rp, rpShort, pct, delta, cls, arrow, icon, empty, lineChart, sparkline, esc, $, result, fmtDate, num, toast } from '../ui/ui.js';
 
-const page = await mountShell('dashboard', 'Beranda');
-const INCOME_LABEL = { 'uang saku': 'Uang saku dari wali', gaji: 'Gaji', kerja_lepas: 'Kerja lepas', bisnis: 'Laba bisnis', sewa: 'Sewa properti', kupon: 'Kupon obligasi', dividen: 'Dividen', youtube: 'YouTube (lama)', kreator_platform: 'Kreator · pembayaran platform', kreator_dukungan: 'Kreator · gifts & dukungan', kreator_sponsor: 'Kreator · sponsor', kreator_merch: 'Kreator · merchandise', kreator_afiliasi: 'Kreator · affiliate', kreator_membership: 'Kreator · membership', kreator_sponsor_refund: 'Kreator · pengembalian sponsor', investasi_realized: 'Realisasi investasi', trading_realized: 'Realisasi trading' };
+const page = await mountShell('dashboard', 'Dashboard');
+const INCOME_LABEL = { 'uang saku': 'Uang saku dari wali', gaji: 'Gaji', kerja_lepas: 'Kerja lepas', bisnis: 'Laba bisnis', sewa: 'Sewa properti', kupon: 'Kupon obligasi', dividen: 'Dividen', youtube: 'Kreator · catatan lama', kreator_platform: 'Kreator · pembayaran platform', kreator_dukungan: 'Kreator · gifts & dukungan', kreator_sponsor: 'Kreator · sponsor', kreator_merch: 'Kreator · merchandise', kreator_afiliasi: 'Kreator · affiliate', kreator_membership: 'Kreator · membership', kreator_sponsor_refund: 'Kreator · pengembalian sponsor', investasi_realized: 'Realisasi investasi', trading_realized: 'Realisasi trading' };
 const EXP_LABEL = { pendidikan: 'Biaya pendidikan (saldo pribadi)', bisnis_rugi: 'Rugi operasional bisnis', stok_bisnis: 'Belanja stok', modal_bisnis: 'Modal bisnis', cicilan: 'Cicilan utang', kursus: 'Kursus', biaya_trading: 'Biaya trading', biaya_investasi: 'Biaya investasi', pbb: 'PBB', ekspansi: 'Ekspansi bisnis', youtube_alat: 'Peralatan YouTube', kreator_produksi: 'Kreator · biaya produksi', kreator_alat: 'Kreator · peralatan', kreator_langganan: 'Kreator · langganan', kreator_live: 'Kreator · biaya live', kreator_kursus: 'Kreator · kelas', kreator_merch_setup: 'Kreator · setup merch', kreator_sponsor_refund: 'Kreator · pengembalian uang muka sponsor', trading_realized: 'Rugi trading terealisasi', investasi_realized: 'Rugi investasi terealisasi' };
 const REAL_INCOME = k => !['trading_realized', 'investasi_realized'].includes(k);
 
@@ -43,7 +43,7 @@ function heroWho() {
   const S = E.S, P = E.P || {}, c = S.career, job = c.job ? E.jobById(c.job.jobId) : null, ed = E.EDU?.edu, st = NE.stateAt(S.clock.g);
   const edu = ed?.status === 'enrolled' ? `${ed.stage} · ${ed.labelTerm}` : ed?.status === 'graduated' ? `Lulus ${ed.highest}` : 'Belum sekolah';
   const w = CAL.dateParts(E.dayNow());
-  $('#hero-who').innerHTML = `<div class="who"><img class="pic avatar-art" src="assets/img/avatars/${esc(P.avatarId || 'avatar-1')}.svg" alt="Avatar ${esc(P.nickname || S.player.name)}"><div style="min-width:0"><h2>${esc(P.name || S.player.name)}</h2><div class="meta">${E.ageYears()} tahun · ${esc(P.city || '—')}</div><div class="row wrap" style="gap:6px;margin-top:5px"><span class="chip dark">${esc(NE.STATE_LABEL[st])}</span><span class="chip">${esc(job ? job.title : c.gigToday ? 'Shift lepas hari ini' : 'Belum bekerja')}</span><span class="chip">${esc(edu)}</span></div></div></div>
+  $('#hero-who').innerHTML = `<div class="who"><span class="pic" aria-hidden="true">${esc((P.nickname || S.player.name).slice(0, 1).toUpperCase())}</span><div style="min-width:0"><h2>${esc(P.name || S.player.name)}</h2><div class="meta">${E.ageYears()} tahun · ${esc(P.city || '—')}</div><div class="row wrap" style="gap:6px;margin-top:5px"><span class="chip dark">${esc(NE.STATE_LABEL[st])}</span><span class="chip">${esc(job ? job.title : c.gigToday ? 'Shift lepas hari ini' : 'Belum bekerja')}</span><span class="chip">${esc(edu)}</span></div></div></div>
   <div class="big-clock"><div class="subtle">${CAL.WEEKDAYS[w.weekday]}, ${fmtDay(E.dayNow(), 'long')}</div><div class="t" data-bigclock>${CAL.fmtHMS(E.secOfDay())}</div><div class="subtle">Tahun ${w.year} · bulan ${w.month} · tanggal ${w.date}${S.settings.paused ? ' · dijeda' : ''}</div></div>`;
 }
 function heroMoney() {
@@ -141,7 +141,7 @@ function nextSteps() {
     else items.push({ tone: 'ok', t: `Shift ${E.jobById(c.gigToday).title} sudah diambil`, d: 'Upah masuk saat hari berganti. Sambil menunggu, lamar pekerjaan tetap agar penghasilan stabil.', a: `<a class="btn sm" href="career.html">Lihat lowongan</a>` });
     if (!c.applications.some(a => ['dikirim', 'ditinjau', 'evaluasi', 'menunggu', 'tawaran'].includes(a.status))) {
       const eligible = E.JOB_CATALOG.filter(j => j.type !== 'gig' && !E.jobRequirements(j).length).length;
-      items.push({ tone: 'info', t: 'Cari pekerjaan tetap', d: `${eligible} lowongan sudah sesuai syaratmu. Peluang diterima ditampilkan sebagai estimasi, bukan jaminan.`, a: `<a class="btn sm" href="career.html">Buka Karier & Pekerjaan</a>` });
+      items.push({ tone: 'info', t: 'Cari pekerjaan tetap', d: `${eligible} lowongan sudah sesuai syaratmu. Peluang diterima ditampilkan sebagai estimasi, bukan jaminan.`, a: `<a class="btn sm" href="career.html">Buka Career & Jobs</a>` });
     }
   }
   for (const b of S.businesses.filter(b => b.status === 'buka')) {
@@ -162,7 +162,7 @@ function nextSteps() {
     if (open) { const need = open.capex + open.workingCapital - S.player.balance; items.push({ tone: 'info', t: `Bisnis termurah yang terbuka: ${open.name}`, d: need > 0 ? `Modal awal + modal kerja ≈ ${rpShort(open.capex + open.workingCapital)}. Kurang ${rpShort(need)} dari saldomu.` : `Saldo cukup untuk modal awal & modal kerja. Jalankan simulasi kelayakan dulu.`, a: `<a class="btn sm" href="business.html">Lihat katalog</a>` }); }
   }
   if (S.debts.length) { const t = S.debts.reduce((s, d) => s + d.monthlyPay, 0); if (S.player.balance < t) items.push({ tone: 'error', t: 'Saldo di bawah cicilan bulan ini', d: `Cicilan ±${rp(t)} ditagih awal bulan. Gagal bayar menurunkan reputasi.`, a: '' }); }
-  if (S.player.balance > 5_000_000 && !S.invest.holdings.some(h => h.status !== 'selesai')) items.push({ tone: 'info', t: 'Ada kas menganggur', d: 'Pertimbangkan dana darurat dulu, lalu instrumen sesuai tujuan. Investasi di BizSim tidak dijamin untung.', a: `<a class="btn sm" href="investments.html">Investasi</a>` });
+  if (S.player.balance > 5_000_000 && !S.invest.holdings.some(h => h.status !== 'selesai')) items.push({ tone: 'info', t: 'Ada kas menganggur', d: 'Pertimbangkan dana darurat dulu, lalu instrumen sesuai tujuan. Investasi di BizSim tidak dijamin untung.', a: `<a class="btn sm" href="investments.html">Investments</a>` });
 
   const ICON = { ok: 'check', warn: 'alert', error: 'alert', info: 'info' };
   $('#next').innerHTML = `<div class="panel-h"><h2>Langkah berikutnya</h2><div class="row"><a class="btn sm ghost" href="market.html">${icon('market')}Trading</a><a class="btn sm ghost hide-m" href="business.html">${icon('business')}Bisnis</a><button class="btn sm" data-skip>${icon('skip')}Lanjut hari</button></div></div>
@@ -193,7 +193,7 @@ function profile() {
   const fam = V?.family?.[P.family];
   $('#profile').innerHTML = `<div class="panel-h"><h2>Profil karakter</h2><div class="row" style="gap:8px"><span class="chip dark">Level ${L.level}</span><button class="btn sm" data-edit-profile>Ubah</button></div></div>
   <div class="panel-b">
-    <div class="row" style="gap:12px;margin-bottom:12px"><img class="avatar-lg avatar-art" src="assets/img/avatars/${esc(P.avatarId || 'avatar-1')}.svg" alt="Avatar ${esc(P.nickname || S.player.name)}"><div style="min-width:0"><b style="font-size:15px">${esc(P.name || S.player.name)}</b><div class="subtle">Panggilan ${esc(P.nickname || '—')} · <span class="mono">${esc(V?.charId || '')}</span></div></div></div>
+    <div class="row" style="gap:12px;margin-bottom:12px"><span class="avatar-lg avatar-photo" aria-hidden="true"><img data-current-avatar alt="Avatar karakter" src="assets/img/avatars/avatar-1.svg"></span><div style="min-width:0;flex:1"><b style="font-size:15px">${esc(P.name || S.player.name)}</b><div class="subtle">Panggilan ${esc(P.nickname || '—')} · <span class="mono">${esc(V?.charId || '')}</span></div><div class="avatar-picker" role="group" aria-label="Pilih avatar">${Array.from({length:6},(_,i)=>`<button type="button" class="avatar-option" data-avatar="${i+1}" aria-label="Pilih avatar ${i+1}" title="Avatar ${i+1}"><img src="assets/img/avatars/avatar-${i+1}.svg" alt=""></button>`).join('')}</div><small class="subtle">Pilihan avatar tersimpan di browser ini.</small></div></div>
     <dl class="dl">
       <dt>Umur</dt><dd>${age} tahun</dd>
       <dt>Tanggal lahir</dt><dd>${birth ? fmtDate(birth, false) : '—'}</dd>
@@ -211,6 +211,19 @@ function profile() {
     <div class="bar" style="margin:6px 0 4px" role="progressbar" aria-valuenow="${Math.round(L.pct * 100)}" aria-valuemin="0" aria-valuemax="100" aria-label="Progres level"><i style="width:${L.pct * 100}%"></i></div>
     <p class="subtle" style="margin:8px 0 0">Hari ke-${d + 1} · ${fmtDay(d, 'long')}. Tanggal mengikuti kalender game (12 bulan × 30 hari). Usia memakai skala hidup dipercepat: 1 tahun ajaran (56 hari game) = 1 tahun usia. <a href="calendar.html">Buka kalender</a></p>
   </div>`;
+  const avatarKey = `bizsim-avatar:${V?.charId || 'local'}`;
+  const selectedAvatar = Math.max(1, Math.min(6, Number(localStorage.getItem(avatarKey) || 1)));
+  const currentAvatar = $('#profile [data-current-avatar]');
+  if (currentAvatar) currentAvatar.src = `assets/img/avatars/avatar-${selectedAvatar}.svg`;
+  $('#profile .avatar-picker')?.querySelectorAll('[data-avatar]').forEach(btn => {
+    btn.setAttribute('aria-pressed', String(Number(btn.dataset.avatar) === selectedAvatar));
+    btn.onclick = () => {
+      const n = Math.max(1, Math.min(6, Number(btn.dataset.avatar) || 1));
+      localStorage.setItem(avatarKey, String(n));
+      if (currentAvatar) currentAvatar.src = `assets/img/avatars/avatar-${n}.svg`;
+      $('#profile .avatar-picker')?.querySelectorAll('[data-avatar]').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+    };
+  });
   $('#profile [data-edit-profile]').onclick = async () => {
     const r = await editProfile(E.P || {}, { gameDay: E.dayNow() });
     if (!r) return;
@@ -289,7 +302,7 @@ function invPanel() {
   const holds = S.invest.holdings.filter(h => h.status !== 'selesai');
   const pos = Object.entries(S.trading.positions).filter(([, p]) => p.units > 0);
   if (!holds.length && !pos.length) {
-    el.innerHTML = `<div class="panel-h"><h2>Investasi & posisi trading</h2></div>${empty('invest', 'Belum ada investasi', 'Reksa dana indeks bisa dimulai dari Rp 10.000 dan emas dari 0,01 gram. Trading jangka pendek ada di Pasar Simulasi dan berisiko lebih tinggi.', `<div class="row" style="justify-content:center"><a class="btn sm" href="investments.html">Investasi</a><a class="btn sm ghost" href="market.html">Pasar Simulasi</a></div>`)}`;
+    el.innerHTML = `<div class="panel-h"><h2>Investasi & posisi trading</h2></div>${empty('invest', 'Belum ada investasi', 'Reksa dana indeks bisa dimulai dari Rp 10.000 dan emas dari 0,01 gram. Trading jangka pendek ada di Asset Market dan berisiko lebih tinggi.', `<div class="row" style="justify-content:center"><a class="btn sm" href="investments.html">Investments</a><a class="btn sm ghost" href="market.html">Asset Market</a></div>`)}`;
     return;
   }
   const CAT = { saham: 'Saham & Index', emas: 'Emas', tanah: 'Tanah', properti: 'Properti', obligasi: 'Obligasi', deposito: 'Deposito' };

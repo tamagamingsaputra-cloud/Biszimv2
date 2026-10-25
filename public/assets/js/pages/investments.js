@@ -4,14 +4,14 @@ import { INVEST_CATEGORIES } from '../data/investment-catalog.js';
 import { mountShell } from '../ui/shell.js';
 import { rp, rpShort, pct, delta, cls, arrow, icon, empty, lineChart, sparkline, esc, $, $$, toast, fmtDate, num, openDialog, plChip } from '../ui/ui.js';
 
-const page = await mountShell('investments', 'Investasi');
+const page = await mountShell('investments', 'Investments');
 let tab = location.hash.slice(1) || 'portfolio';
 const CAT = Object.fromEntries(INVEST_CATEGORIES.map(c => [c.id, c]));
 const nameOf = (cat, iid) => { const it = E.instrument(cat, iid); return it.name || `Tanah ${it.location}`; };
 const isFund = iid => E.INDEX_FUNDS.some(f => f.id === iid);
 
 page.innerHTML = `
-  <div class="page-head"><div><p>Portofolio jangka panjang. Tiap kelas aset punya model valuasi sendiri dan diperbarui harian atau bulanan — tidak bergerak per tick seperti trading di <a href="market.html">Pasar Simulasi</a>.</p></div><span class="sim-badge">Simulated · bukan janji imbal hasil</span></div>
+  <div class="page-head"><div><p>Portofolio jangka panjang. Tiap kelas aset punya model valuasi sendiri dan diperbarui harian atau bulanan — tidak bergerak per tick seperti trading di <a href="market.html">Asset Market</a>.</p></div><span class="sim-badge">Simulated · bukan janji imbal hasil</span></div>
   <section class="panel"><div class="kpi-strip" id="sum"></div></section>
   <div class="tabs" role="tablist" id="tabs" style="margin-top:16px"></div>
   <div id="body" style="margin-top:16px"></div>`;
@@ -89,7 +89,7 @@ function sahamView() {
       <div class="g-4 grid" style="margin-top:12px;gap:8px"><div><div class="subtle">NAV/unit</div><b class="num">${rp(fs.nav)}</b></div><div><div class="subtle">30 hari</div><b class="${fc == null ? '' : cls(fc)}">${fc == null ? '—' : arrow(fc) + ' ' + pct(fc)}</b></div><div><div class="subtle">Biaya pengelolaan</div><b>${pct(f.expenseRatio, 1, false)}/thn</b></div><div><div class="subtle">Risiko</div><b>${f.risk}</b></div></div>
       <div id="fund-chart" class="chart" style="margin-top:10px"></div></div></section>
     <section class="panel"><div class="panel-h"><h2>Saham perusahaan (fiktif)</h2><span class="subtle">Harga = EPS × P/E</span></div><div class="table-wrap"><table class="table"><thead><tr><th>Emiten</th><th class="hide-m">Sektor</th><th class="r">Harga</th><th class="r hide-m">EPS</th><th class="r hide-m">P/E</th><th class="r hide-m">Div. yield</th><th class="r">30 hari</th><th class="hide-m">Tren</th><th>Risiko</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
-    <div class="panel-b subtle" style="border-top:1px solid var(--border)">Saham di sini dimiliki untuk jangka panjang dan dinilai dari kinerja perusahaan. Untuk jual-beli cepat BBCA/TLKM per tick, gunakan Pasar Simulasi.</div></section>
+    <div class="panel-b subtle" style="border-top:1px solid var(--border)">Saham di sini dimiliki untuk jangka panjang dan dinilai dari kinerja perusahaan. Untuk jual-beli cepat BBCA/TLKM per tick, gunakan Asset Market.</div></section>
   </div><div class="stack">${myHoldings('saham')}${econPanel()}</div></div>`;
 }
 function emasView() {

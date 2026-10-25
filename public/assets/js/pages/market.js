@@ -5,7 +5,7 @@ import { WARMUP_DAYS } from '../data/market-assets.js';
 import { mountShell } from '../ui/shell.js';
 import { rp, rpShort, pct, delta, cls, arrow, icon, empty, lineChart, sparkline, esc, $, $$, toast, fmtDate, num, skeleton, plChip } from '../ui/ui.js';
 
-const page = await mountShell('market', 'Pasar Simulasi');
+const page = await mountShell('market', 'Asset Market');
 const T = E.TICKS_PER_DAY;
 const COLORS = { BTC: '#E8912D', ETH: '#5B6EE1', BBCA: '#1F5FA8', TLKM: '#C8352B', BBRI: '#0E5AA7', GOTO: '#1F9D55' };
 let sym = (location.hash.slice(1) || 'BTC').toUpperCase(); if (!E.assetBySym(sym)) sym = 'BTC';
@@ -35,7 +35,7 @@ requestAnimationFrame(() => setTimeout(build, 250));
 
 function build() {
   page.innerHTML = `
-  <div class="msg warn" style="margin-bottom:14px">${icon('info')}<span><b>Pasar SIMULATED.</b> Semua harga dihasilkan simulation engine BizSim (seed ${E.S.seed}) dan bergerak per market tick — bukan harga pasar nyata. Trading adalah aktivitas jangka pendek dengan risiko tinggi; untuk tujuan jangka panjang gunakan <a href="investments.html">Investasi</a>.</span></div>
+  <div class="msg warn" style="margin-bottom:14px">${icon('info')}<span><b>Pasar SIMULATED.</b> Semua harga dihasilkan simulation engine BizSim (seed ${E.S.seed}) dan bergerak per market tick — bukan harga pasar nyata. Trading adalah aktivitas jangka pendek dengan risiko tinggi; untuk tujuan jangka panjang gunakan <a href="investments.html">Investments</a>.</span></div>
   <div class="mkt">
     <section class="panel alist" aria-label="Daftar aset"><div class="panel-h"><h2>Aset</h2><span class="subtle">24 jam sim.</span></div><div class="rows" id="alist" role="listbox" aria-label="Pilih aset"></div></section>
     <section class="stack" style="min-width:0">

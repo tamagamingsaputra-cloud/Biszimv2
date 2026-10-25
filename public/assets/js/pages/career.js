@@ -4,19 +4,19 @@ import { TIME_RULES } from '../data/time-rules.js';
 import { mountShell } from '../ui/shell.js';
 import { rp, rpShort, pct, delta, cls, icon, empty, lineChart, esc, $, $$, toast, fmtDate, num, openDialog, skillLabel } from '../ui/ui.js';
 
-const page = await mountShell('career', 'Karier & Pekerjaan');
+const page = await mountShell('career', 'Career & Jobs');
 const TYPE = { gig: 'Kerja lepas', part: 'Paruh waktu', full: 'Penuh waktu' };
 const STATUS = { dikirim: ['Dikirim', 'info'], ditinjau: ['Ditinjau HR', 'info'], evaluasi: ['Perlu evaluasi', 'warn'], menunggu: ['Menunggu keputusan', 'info'], tawaran: ['Tawaran kerja', 'pos'], diterima: ['Diterima', 'pos'], ditolak: ['Tidak lolos', 'neg'], 'ditolak-pemain': ['Kamu tolak', ''], kedaluwarsa: ['Kedaluwarsa', ''] };
 const ACTIVE = ['dikirim', 'ditinjau', 'evaluasi', 'menunggu', 'tawaran'];
 let tab = location.hash.slice(1) || 'jobs';
 let jf = { type: 'all', eligible: false };
 
-page.innerHTML = `<div class="page-head"><div><p>Jalur perkembangan karakter: mulai dari kerja lepas tanpa modal, bangun pengalaman & skill, lalu naik ke posisi yang lebih baik. Peluang diterima adalah estimasi — keputusan akhir dihitung engine saat lamaran diproses.</p></div><span class="sim-badge">SIMULASI</span></div>
+page.innerHTML = `<div class="page-head"><div><p>Jalur perkembangan karakter: mulai dari kerja lepas tanpa modal, bangun pengalaman & skill, lalu naik ke posisi yang lebih baik. Peluang diterima adalah estimasi — keputusan akhir dihitung engine saat lamaran diproses.</p></div><span class="sim-badge">Simulated</span></div>
 <div class="tabs" role="tablist" id="tabs"></div><div id="body" style="margin-top:16px"></div>`;
 
 function tabs() {
   const c = E.S.career, act = c.applications.filter(a => ACTIVE.includes(a.status)).length;
-  $('#tabs').innerHTML = [['jobs', 'Lowongan', E.JOB_CATALOG.length], ['applications', 'Status lamaran', act], ['active', 'Pekerjaan aktif', c.job ? 1 : 0], ['skills', 'Skill & pengalaman', null]]
+  $('#tabs').innerHTML = [['jobs', 'Lowongan', E.JOB_CATALOG.length], ['applications', 'Status lamaran', act], ['active', 'Pekerjaan aktif', c.job ? 1 : 0], ['skills', 'Skill & pengalaman', null], ['youtube', 'Kreator · side income', null]]
     .map(([k, l, n]) => `<button class="tab" role="tab" aria-selected="${tab === k}" data-tab="${k}">${l}${n ? `<span class="count">${n}</span>` : ''}</button>`).join('');
 }
 $('#tabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) { tab = b.dataset.tab; history.replaceState(null, '', '#' + tab); render(); } });
@@ -134,9 +134,23 @@ function skillsView() {
   <section class="panel"><div class="panel-h"><h2>Pengalaman kerja</h2></div><div class="panel-b">${expList()}</div></section></div></div>`;
 }
 
+function ytView() {
+  const C = E.S.creator, wh = E.weeklyHours(), accs = Object.values(C?.accounts || {});
+  const PL = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram' }, FL = { youtube: 'subscriber', tiktok: 'follower', instagram: 'follower' };
+  const W = v => `${Math.max(0, Math.min(100, v / wh.budget * 100))}%`;
+  const timeBox = `<section class="panel"><div class="panel-h"><h2>Waktu minggu ini</h2></div><div class="panel-b"><div class="bar" style="height:10px;display:flex"><i style="width:${W(wh.school)};background:var(--blue-gray-dark,#9fb0c2);border-radius:0"></i><i style="width:${W(wh.job)};background:var(--navy);border-radius:0"></i><i style="width:${W(wh.creator)};background:var(--green);border-radius:0"></i></div>
+    <dl class="dl" style="margin-top:10px"><dt>Jam aktif per minggu</dt><dd>${wh.budget} jam</dd><dt>Sekolah / kuliah</dt><dd>${wh.school} jam</dd><dt>Pekerjaan utama</dt><dd>${wh.job} jam</dd><dt>Konten kreator</dt><dd>${num(wh.creator, 1)} jam</dd><dt><b>Waktu luang</b></dt><dd><b>${num(wh.free, 1)} jam</b></dd></dl>
+    <p class="subtle" style="margin:8px 0 0">Kreator berjalan di samping sekolah dan pekerjaan — tidak perlu resign. Jam produksi dipotong dari waktu luang.</p></div></section>`;
+  const rows = accs.length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Platform</th><th>Akun</th><th class="r">Audiens</th><th class="r">Total tayangan*</th></tr></thead><tbody>${accs.map(a => `<tr><td>${PL[a.id] || a.id}</td><td>@${esc(a.handle)}</td><td class="r num">${num(Math.floor(a.followers))} ${FL[a.id] || ''}</td><td class="r num">${num(Math.round(a.totalViews))}</td></tr>`).join('')}</tbody></table></div><p class="subtle" style="margin:8px 0 0">*Definisi tayangan berbeda per platform (views YouTube/TikTok, reach Instagram). Detail ada di Studio.</p>` : `<p style="margin:0">Belum ada akun kreator. Membuat konten adalah jalur karier opsional — kamu tidak wajib menjadi kreator.</p>`;
+  return `<div class="split"><section class="panel"><div class="panel-h"><div><h2>Content Creator · side income</h2><div class="subtle">YouTube, TikTok, Instagram (simulasi)</div></div><span class="chip">Opsional</span></div><div class="panel-b stack" style="gap:12px">
+    ${rows}
+    <p class="subtle" style="margin:0">Fitur YouTube lama di halaman ini sudah dipindahkan ke Content Creator Studio. Channel, video, dan pendapatan lama ikut dimigrasikan.</p>
+    <div><a class="btn primary" href="studio.html">${icon('studio')}Buka Content Creator Studio</a></div></div></section><div class="stack">${timeBox}</div></div>`;
+}
+
 function render() {
   tabs();
-  $('#body').innerHTML = ({ jobs: jobsView, applications: appsView, active: activeView, skills: skillsView }[tab] || jobsView)();
+  $('#body').innerHTML = ({ jobs: jobsView, applications: appsView, active: activeView, skills: skillsView, youtube: ytView }[tab] || jobsView)();
 }
 render();
 E.on('change', () => { if (!document.querySelector('dialog[open]') && !document.activeElement?.matches('input,select')) render(); });

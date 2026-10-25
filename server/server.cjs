@@ -7,7 +7,7 @@ const Database = require('better-sqlite3');
 const C = require('./catalog.cjs');
 const CAL = require('./calendar.cjs');
 
-const DB_PATH = process.env.BIZSIM_DB || path.join(__dirname, 'bizsim.db');
+const DB_PATH = process.env.BIZSIM_DB || (process.env.VERCEL ? path.join('/tmp', 'bizsim.db') : path.join(__dirname, 'bizsim.db'));
 const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 db.exec(`
@@ -269,7 +269,7 @@ app.post('/api/profile', (req, res) => {
   if (name.length < 2) return fail(res, 'Nama karakter minimal 2 huruf.');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(birth)) return fail(res, 'Tanggal lahir tidak valid.');
   if (!FAMILY[family]) return fail(res, 'Latar keluarga tidak dikenal.');
-  const profile = { name, nickname: String(b.nickname || name.split(' ')[0]).slice(0, 20), gender: b.gender === 'P' ? 'P' : 'L', birthDate: birth, birthPlace: String(b.birthPlace || city).slice(0, 40), city, province: String(b.province || ''), guardian: String(b.guardian || '').slice(0, 40), aspiration: String(b.aspiration || '').slice(0, 40), avatarId: ['avatar-1','avatar-2','avatar-3','avatar-4','avatar-5','avatar-6'].includes(String(b.avatarId)) ? String(b.avatarId) : 'avatar-1', family, aptitude: 40 + Math.round(C.hash(b.seed || 20260105, 'apt', name) * 30), seed: Number(b.seed) || 20260105, createdAt: now() };
+  const profile = { name, nickname: String(b.nickname || name.split(' ')[0]).slice(0, 20), gender: b.gender === 'P' ? 'P' : 'L', birthDate: birth, birthPlace: String(b.birthPlace || city).slice(0, 40), city, province: String(b.province || ''), guardian: String(b.guardian || '').slice(0, 40), aspiration: String(b.aspiration || '').slice(0, 40), family, aptitude: 40 + Math.round(C.hash(b.seed || 20260105, 'apt', name) * 30), seed: Number(b.seed) || 20260105, createdAt: now() };
   const age = ageAt(profile, gameDay);
   if (age < 6 || age > 7) return fail(res, `Skenario standar dimulai dari SD kelas 1 untuk usia 6–7 tahun (usia dari tanggal lahir: ${age}).`);
   const charId = 'CHR-' + crypto.randomBytes(4).toString('hex').toUpperCase();
@@ -285,7 +285,6 @@ app.patch('/api/profile', (req, res) => {
   const str = (k, max, min = 0) => { if (b[k] === undefined) return true; const v = String(b[k]).trim().slice(0, max); if (v.length < min) return false; if (v !== pr[k]) { pr[k] = v; changed.push(k); } return true; };
   if (!str('name', 40, 2)) return fail(res, 'Nama karakter minimal 2 huruf.');
   str('nickname', 20); str('birthPlace', 40); str('guardian', 40); str('aspiration', 40); str('province', 40);
-  if (b.avatarId !== undefined) { const aid = String(b.avatarId); if (!['avatar-1','avatar-2','avatar-3','avatar-4','avatar-5','avatar-6'].includes(aid)) return fail(res, 'Avatar tidak dikenal.'); if (aid !== pr.avatarId) { pr.avatarId = aid; changed.push('avatarId'); } }
   if (b.city !== undefined) { const c = String(b.city).trim().slice(0, 40); if (!c) return fail(res, 'Kota domisili wajib diisi.'); if (c !== pr.city) { pr.city = c; changed.push('city'); } }
   if (b.gender !== undefined) { const g = b.gender === 'P' ? 'P' : 'L'; if (g !== pr.gender) { pr.gender = g; changed.push('gender'); } }
   if (b.birthDate !== undefined && b.birthDate !== pr.birthDate) {
@@ -421,4 +420,5 @@ app.get('/api/edu/sample', (req, res) => {
 
 app.use(express.static(path.join(__dirname, '..', 'public'), { extensions: ['html'] }));
 const PORT = Number(process.env.PORT) || 8000;
-app.listen(PORT, '0.0.0.0', () => console.log('BizSim server on :' + PORT));
+if (require.main === module) app.listen(PORT, '0.0.0.0', () => console.log('BizSim server on :' + PORT));
+module.exports = app;

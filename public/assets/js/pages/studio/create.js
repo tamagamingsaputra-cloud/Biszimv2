@@ -1,11 +1,11 @@
-// Buat Konten — wizard 10 langkah. Estimasi jam & biaya berasal dari CR.estimate() (rencana engine), bukan angka UI.
+// Create Content — wizard 10 langkah. Estimasi jam & biaya berasal dari CR.estimate() (rencana engine), bukan angka UI.
 import { E, C, PRE, CR, PLATFORMS, NICHES, ACTIVE_PLATFORMS, fN, fInt, fHours, fmtG, pIcon, pName, nName, thumb, res, emptyBox, rp, gOfDay, T } from './common.js';
 import { icon, esc, openDialog } from '../../ui/ui.js';
 import { ANGLES, QUALITY, BUDGETS, MUSIC, PACKAGING, THUMBS, OUTSOURCE_EDIT, CREATOR_SKILLS, EQUIPMENT, STAGES } from '../../data/creator-platforms.js';
 import { competition } from '../../engine/creator/audience.js';
 import { gearItem } from '../../engine/creator/rules.js';
 
-const STEPS = ['Platform', 'Format', 'Topik', 'Ide & judul', 'Durasi / isi', 'Kualitas', 'Peralatan & skill', 'Anggaran', 'Mulai produksi', 'Tinjau & terbitkan'];
+const STEPS = ['Platform', 'Format', 'Topik', 'Ide & judul', 'Durasi / isi', 'Kualitas', 'Alat & skill', 'Anggaran', 'Mulai produksi', 'Review & terbit'];
 let WZ = null;
 const fresh = () => ({ step: 0, maxStep: 0, draftId: null, done: null, spec: { platform: null, format: null, niche: null, angle: 'tutorial', title: '', caption: '', concept: '', dur: 0, photos: 0, quality: 'standard', budget: 0, music: 'library', packaging: 'honest', thumb: 'text', focus: '', outsource: false, sponsorContract: '', disclosure: false, collab: '', affiliate: false, after: 'manual', schDay: 1, schTime: 38, premiere: false } });
 
@@ -90,7 +90,7 @@ function body() {
       <div class="row" style="gap:14px;align-items:flex-start">${thumb({ ...specOut(), dur: +s.dur }, 84)}<div><b>${esc(s.title)}</b><div class="subtle s">${pName(s.platform)} · ${f.name} · ${nName(s.niche)} · ${QUALITY[s.quality].name}</div></div></div>
       <div class="table-wrap" style="margin-top:12px"><table class="table"><thead><tr><th>Tahap</th><th class="r">Jam</th><th class="r">Biaya</th></tr></thead><tbody>${est.stages.map(x => `<tr><td>${STAGES.find(z => z.key === x.key).label}${x.outsourced ? ' <span class="chip">editor lepas</span>' : ''}</td><td class="r num">${fHours(x.hours)}</td><td class="r num">${rp(x.cost)}</td></tr>`).join('')}<tr><td><b>Total</b></td><td class="r num"><b>${fHours(est.hoursTotal)}</b></td><td class="r num"><b>${rp(est.costTotal)}</b></td></tr></tbody></table></div>
       <p class="subtle s">Jam karaktermu ${fHours(est.selfHours)} — dengan batas ${dh} jam/hari, minimal ±${days} hari kerja, di luar jam tidur, sekolah, dan kerja. Biaya dibayar saat tiap tahap dimulai; jika saldo kurang, produksi menunggu.</p>
-      <h3>Setelah produksi selesai</h3><div class="choices c3">${choice('after', 'manual', s.after, 'Review dulu', 'Status Siap diterbitkan — kamu yang menerbitkan')}${choice('after', 'auto', s.after, 'Terbit otomatis', 'Langsung terbit saat selesai')}${f.schedule ? choice('after', 'schedule', s.after, 'Jadwalkan', 'Terbit pada waktu yang dipilih') : ''}</div>
+      <h3>Setelah produksi selesai</h3><div class="choices c3">${choice('after', 'manual', s.after, 'Review dulu', 'Status Ready to Publish — kamu yang menerbitkan')}${choice('after', 'auto', s.after, 'Terbit otomatis', 'Langsung terbit saat selesai')}${f.schedule ? choice('after', 'schedule', s.after, 'Jadwalkan', 'Terbit pada waktu yang dipilih') : ''}</div>
       ${s.after === 'schedule' ? `<div class="row wrap" style="gap:10px"><label class="field"><span>Hari</span><select class="input" name="schDay">${Array.from({ length: 14 }, (_, i) => `<option value="${i}" ${+s.schDay === i ? 'selected' : ''}>${i === 0 ? 'Hari ini' : i === 1 ? 'Besok' : `+${i} hari`} (H${d0 + i + 1})</option>`).join('')}</select></label><label class="field"><span>Jam</span><select class="input" name="schTime">${Array.from({ length: 48 }, (_, i) => `<option value="${i}" ${+s.schTime === i ? 'selected' : ''}>${String(Math.floor(i / 2)).padStart(2, '0')}.${i % 2 ? '30' : '00'}</option>`).join('')}</select></label></div>
         ${f.premiere ? `<label class="check"><input type="checkbox" name="premiere" ${s.premiere ? 'checked' : ''}><span>Tayangkan sebagai <b>Premiere</b> (penonton menunggu bersama; dorongan awal lebih kuat dari follower)</span></label>` : ''}
         <p class="subtle s">Jika produksi belum selesai saat jadwal tiba, konten terbit segera setelah selesai.</p>` : ''}`;
@@ -98,8 +98,8 @@ function body() {
     case 9: {
       const it = WZ.done && c.contents.find(k => k.id === WZ.done);
       return `<h2>10 · Review & terbit</h2>${it ? `<div class="msg ok">${icon('check')}<span><b>${esc(it.title)}</b> masuk antrean produksi (${statusLabel(it)}). Progres berjalan mengikuti waktu simulasi.</span></div>` : ''}
-      <p>Langkah ini dilakukan setelah produksi selesai: di <a href="#queue">Antrean Produksi</a>, konten berstatus <b>Siap diterbitkan</b> bisa direview (skor mutu akhir), lalu diterbitkan sekarang, dijadwalkan, atau dibatalkan.</p>
-      <div class="row wrap" style="gap:8px"><a class="btn primary" href="#queue">${icon('layers')}Buka Antrean Produksi</a><button class="btn" data-a="new">${icon('edit')}Buat konten lain</button>${it ? `<button class="btn" data-a="dupdone">${icon('copy')}Gandakan konsep ini</button>` : ''}</div>`;
+      <p>Langkah ini dilakukan setelah produksi selesai: di <a href="#queue">Production Queue</a>, konten berstatus <b>Ready to Publish</b> bisa direview (skor mutu akhir), lalu diterbitkan sekarang, dijadwalkan, atau dibatalkan.</p>
+      <div class="row wrap" style="gap:8px"><a class="btn primary" href="#queue">${icon('layers')}Buka Production Queue</a><button class="btn" data-a="new">${icon('edit')}Buat konten lain</button>${it ? `<button class="btn" data-a="dupdone">${icon('copy')}Gandakan konsep ini</button>` : ''}</div>`;
     }
   }
 }

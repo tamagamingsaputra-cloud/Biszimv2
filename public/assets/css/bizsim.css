@@ -1,7 +1,7 @@
 /* BizSim — Master UI design system
    Visual direction (dari layout asli): Navy #0E2A47, White #FFFFFF, Blue-Gray #DDE5EC,
    Financial Green #2ECC71, Financial Red #E74C3C. Border tipis, radius kecil, data padat. */
-/* Offline-safe typography: no external font download required. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap');
 
 :root {
   --navy: #0E2A47; --navy-2: #163A5F; --navy-3: #21507F;
@@ -14,8 +14,8 @@
   --blue-ink: #1F5FA8; --blue-bg: #E6F0FB;
   --radius: 6px; --radius-sm: 4px;
   --shadow: 0 1px 2px rgba(14, 42, 71, .06);
-  --font: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
   --t-xs: 11px; --t-sm: 12.5px; --t-base: 14px; --t-md: 16px; --t-lg: 20px; --t-xl: 26px;
   --sidebar: 232px; --topbar: 60px; --bottomnav: 64px;
 }
@@ -751,152 +751,25 @@ dialog.sheet { width: min(640px, 100vw); }
   .mod-band p { font-size: 12.5px; }
 }
 
-/* ================================================================
-   BizSim v7.1 — page-specific visual system / Android overflow repair
-   Runtime UI uses local SVG assets; no external icon/font dependency.
-   ================================================================ */
-:root{--radius:14px;--radius-lg:20px;--page-accent:#24486B;--page-accent-soft:#E9F1F8;--page-bg:#F3F6FA;--page-ink:#172B42}
-html{scroll-padding-top:84px;scrollbar-gutter:stable}
-body{background:var(--page-bg);color:var(--page-ink);overflow-x:hidden}
-*,*::before,*::after{box-sizing:border-box}
-img,svg,video,canvas{max-width:100%}
-.app,.main,.content,#page,.panel,.panel-b,.panel-h,.split,.grid,.stack{min-width:0}
-.content{padding:clamp(12px,2.2vw,26px);padding-bottom:calc(28px + env(safe-area-inset-bottom,0px))}
-.panel{border-radius:var(--radius-lg);border-color:color-mix(in srgb,var(--page-accent) 12%,#dbe3eb);box-shadow:0 3px 14px rgba(15,38,63,.035)}
-.panel-h{gap:12px;flex-wrap:wrap}
-.panel-h h2,.page-head h2{min-width:0;overflow-wrap:anywhere}
-.page-head{gap:12px;align-items:flex-start}
-.page-head p,.subtle,.meta,.msg span,.dl dd,.dl dt,.list li,.table td,.table th{overflow-wrap:anywhere;word-break:normal}
-.btn,.icon-btn,.tab,.nav-link,.qa{transition:background-color .16s ease,border-color .16s ease,transform .16s ease}
-.btn{border-radius:11px;min-height:38px;white-space:normal;text-align:center}
-.icon-btn{border-radius:12px;flex:none}
-.input,select.input,textarea.input{border-radius:11px;min-height:40px;max-width:100%}
-.field{min-width:0}
-.field input,.field select,.field textarea{min-width:0}
-.row>*{min-width:0}
-.dl{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:9px 14px}
-.dl dd{text-align:right}
-.avatar-art{display:block;object-fit:cover;border-radius:22%;background:var(--page-accent-soft);border:1px solid rgba(20,43,65,.12);flex:none}
-.pic.avatar-art{width:64px;height:64px}
-.avatar-lg.avatar-art{width:68px;height:68px}
-.avatar-picker{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
-.avatar-option{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 4px;border:1px solid var(--border);border-radius:13px;background:var(--surface);font-size:11px;cursor:pointer;min-width:0}
-.avatar-option input{position:absolute;top:7px;left:7px;accent-color:var(--page-accent)}
-.avatar-option img{width:min(100%,64px);aspect-ratio:1;border-radius:18px;object-fit:cover}
-.avatar-option:has(input:checked){border-color:var(--page-accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--page-accent) 18%,transparent);background:var(--page-accent-soft)}
-.avatar-option span{overflow-wrap:anywhere;text-align:center}
-.nav-link{border-radius:11px;margin:2px 8px;padding:10px 12px;gap:11px}
-.nav-link svg,.bottomnav svg{width:21px;height:21px;stroke-width:1.9;flex:none}
-.nav-link[aria-current=page]{background:var(--page-accent-soft);color:var(--page-accent);font-weight:750;box-shadow:inset 3px 0 var(--page-accent)}
-.bottomnav{padding:7px 8px calc(7px + env(safe-area-inset-bottom,0px));gap:3px;background:rgba(255,255,255,.97);backdrop-filter:blur(14px);border:1px solid #e0e6ed;border-radius:20px;box-shadow:0 8px 28px rgba(14,42,71,.13)}
-.bottomnav a,.bottomnav button{min-width:0;min-height:54px;border-radius:13px;gap:4px;font-size:10.5px;font-weight:700;justify-content:center;overflow-wrap:anywhere}
-.bottomnav a[aria-current=page],.bottomnav button[aria-current=page]{background:var(--page-accent-soft);color:var(--page-accent)}
-.topbar,.mobile-head{border-bottom:1px solid #e0e6ed}
-.sim-badge{letter-spacing:.045em;font-weight:800}
-.bar{height:8px;border-radius:99px}
-.bar>i{border-radius:99px}
-.chart-empty{border-radius:14px;min-height:90px}
-.empty{border-radius:14px}
-.table-wrap{max-width:100%;overscroll-behavior-x:contain}
-@media(max-width:700px){
-  .content{padding:12px 12px calc(96px + env(safe-area-inset-bottom,0px))}
-  .panel{border-radius:17px}
-  .panel-h{padding:14px 15px}
-  .panel-b{padding:14px 15px}
-  .split,.grid.g-2,.grid.g-3,.grid.g-4{grid-template-columns:minmax(0,1fr)!important}
-  .kpi-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .kpi-strip>.kpi+.kpi{border-left:0}
-  .kpi-strip>.kpi:nth-child(even){border-left:1px solid var(--border)}
-  .kpi-strip>.kpi:nth-child(n+3){border-top:1px solid var(--border)}
-  .avatar-picker{grid-template-columns:repeat(3,minmax(0,1fr))}
-  .dl{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 10px}
-  .dl dd{font-size:13px}
-  .bottomnav{position:fixed;left:10px;right:10px;bottom:calc(7px + env(safe-area-inset-bottom,0px));z-index:50}
-  .toasts{left:12px;right:12px;bottom:calc(82px + env(safe-area-inset-bottom,0px));max-width:none}
-  .dlg-b{overflow:auto;max-height:calc(100dvh - 150px)}
-  .onb{padding:12px;align-items:flex-start;overflow:auto}
-  .onb-card{width:100%;max-height:none;margin:auto}
-  .onb-grid{grid-template-columns:minmax(0,1fr)}
-  .onb-grid .span2{grid-column:auto}
-}
 
-/* Dashboard: personal life and decisions — restrained navy/gold */
-body[data-module="dashboard"]{--page-accent:#173653;--page-accent-soft:#EAF0F7;--page-bg:#F2F5F9;--page-ink:#172B42}
-body[data-module="dashboard"] .life-hero{border-radius:18px;gap:18px}
-body[data-module="dashboard"] .who h2{letter-spacing:-.025em}
-body[data-module="dashboard"] .money{border-radius:14px;min-width:0}
-body[data-module="dashboard"] #profile .panel-h{background:linear-gradient(110deg,#F4F7FA,#fff)}
-
-/* Market: terminal dark navy like the supplied trading reference */
-body[data-module="market"]{--page-accent:#17B890;--page-accent-soft:#DDF8F0;--page-bg:#071423;--page-ink:#E6EEF7;--surface:#0D1D30;--surface-2:#11253A;--text:#E6EEF7;--text-2:#A8B9CD;--text-3:#8499B3;--border:#233A52;--border-strong:#36516D;--bluegray:#20364D;--navy:#071B30;--navy-2:#0E2A47;--green-ink:#1BC49A;--green-bg:#0E392F;--red-ink:#FF6575;--red-bg:#421E2A;--amber-ink:#E8BD67;--amber-bg:#3C321D;--blue-ink:#83B8F4;--blue-bg:#142D48}
-body[data-module="market"] .topbar,body[data-module="market"] .mobile-head{background:#071B30;color:#F2F7FC;border-color:#20374F}
-body[data-module="market"] .sidebar{background:#061321;color:#C5D4E5;border-color:#20374F}
-body[data-module="market"] .brand,body[data-module="market"] .nav-link{color:inherit}
-body[data-module="market"] .nav-link[aria-current=page]{background:#15334A;color:#64E3C1;box-shadow:inset 3px 0 #17B890}
-body[data-module="market"] .panel{background:#0D1D30;border-color:#223A52;box-shadow:0 12px 28px rgba(0,0,0,.12)}
-body[data-module="market"] .panel-h{border-color:#20364D}
-body[data-module="market"] .input,body[data-module="market"] select.input{background:#071423;color:#E6EEF7;border-color:#36516D}
-body[data-module="market"] .table th{background:#12273D;color:#AFC1D5}
-body[data-module="market"] .table td{border-color:#20364D}
-body[data-module="market"] .chart-empty{background:#09192A;border-color:#2B435B;color:#9FB2C8}
-body[data-module="market"] .bottomnav{background:rgba(8,24,40,.97);border-color:#294158;color:#D6E2EE}
-body[data-module="market"] .bottomnav a[aria-current=page],body[data-module="market"] .bottomnav button[aria-current=page]{background:#17354C;color:#55DDB9}
-body[data-module="market"] .sim-badge{background:#293329;color:#E9C878;border-color:#6E633B}
-
-/* Investments: emerald research and portfolio */
-body[data-module="investments"]{--page-accent:#087F65;--page-accent-soft:#DFF5EC;--page-bg:#F0F8F4;--page-ink:#183B35}
-body[data-module="investments"] .page-head{border-left:4px solid #168B70;padding-left:14px}
-body[data-module="investments"] .panel{border-top:3px solid #C5EBDD}
-body[data-module="investments"] .btn.primary{background:#087F65;border-color:#087F65}
-
-/* Business: warm workshop / retail catalog */
-body[data-module="business"]{--page-accent:#A84D2F;--page-accent-soft:#FCE9E0;--page-bg:#FBF4EF;--page-ink:#472B24}
-body[data-module="business"] .panel{border-color:#EED8CB;box-shadow:0 5px 16px rgba(100,51,29,.045)}
-body[data-module="business"] .btn.primary{background:#A84D2F;border-color:#A84D2F}
-body[data-module="business"] .tab[aria-selected=true]{color:#A84D2F;border-bottom-color:#A84D2F}
-
-/* Career: violet progression and job decisions */
-body[data-module="career"]{--page-accent:#6B4BC3;--page-accent-soft:#EEE8FF;--page-bg:#F6F4FC;--page-ink:#2E2850}
-body[data-module="career"] .panel{border-color:#E3DDF6}
-body[data-module="career"] .btn.primary{background:#5940A8;border-color:#5940A8}
-body[data-module="career"] .bar>i{background:#7658D2}
-
-/* Education: sky-blue learning workspace */
-body[data-module="education"]{--page-accent:#176BB0;--page-accent-soft:#E1F1FF;--page-bg:#F1F7FC;--page-ink:#18344D}
-body[data-module="education"] .panel{border-color:#D7E7F5}
-body[data-module="education"] .btn.primary{background:#176BB0;border-color:#176BB0}
-body[data-module="education"] .edu-ico{background:#DCEEFF;color:#176BB0;border-radius:15px}
-
-/* Creator Studio: editorial teal, with explicit production-stage colors */
-body[data-module="studio"]{--page-accent:#087F86;--page-accent-soft:#DDF5F4;--page-bg:#F0F8F8;--page-ink:#16383A}
-body[data-module="studio"] .st-tabs{background:#E3F2F2;border:1px solid #CFE5E5;border-radius:14px;padding:4px}
-body[data-module="studio"] .st-tabs .tab{border-radius:10px;border-bottom:0;margin:0;padding:9px 11px}
-body[data-module="studio"] .st-tabs .tab[aria-selected=true]{background:#087F86;color:#fff}
-body[data-module="studio"] .btn.primary{background:#087F86;border-color:#087F86}
-body[data-module="studio"] .st-view .production-stage.editing .bar>i,body[data-module="studio"] .production-progress .editing>i{background:#D94355}
-body[data-module="studio"] .stage-editing svg{color:#D94355}
-body[data-module="studio"] .stage-upload svg{color:#168B70}
-
-/* Finance: calm teal banking; life: coral/orange; calendar: indigo */
-body[data-module="finance"]{--page-accent:#087E8B;--page-accent-soft:#DDF4F5;--page-bg:#F0F8FA;--page-ink:#183B43}
-body[data-module="finance"] .btn.primary{background:#087E8B;border-color:#087E8B}
-body[data-module="life"]{--page-accent:#C45B43;--page-accent-soft:#FCE9E3;--page-bg:#FCF5F2;--page-ink:#4A302B}
-body[data-module="life"] .btn.primary{background:#B64F39;border-color:#B64F39}
-body[data-module="calendar"]{--page-accent:#4857B8;--page-accent-soft:#E8EBFF;--page-bg:#F4F5FD;--page-ink:#252D58}
-body[data-module="calendar"] .btn.primary{background:#4857B8;border-color:#4857B8}
-
-/* Profile/avatar and long text guardrails */
-.who,.avatar,.avatar-lg,.pic{min-width:0;flex:none}
-.who>div,.profile-main,.profile-name{min-width:0;overflow-wrap:anywhere}
-.life-hero,.who,.money-row,.qa-grid,.needs{max-width:100%}
-.money-row>*{min-width:0}
-@media(max-width:420px){
-  .pic.avatar-art{width:54px;height:54px}
-  .avatar-lg.avatar-art{width:58px;height:58px}
-  .panel-h h2{font-size:15px}
-  .kpi .value{font-size:19px}
-  .bottomnav a,.bottomnav button{font-size:9.5px;padding:5px 2px}
-}
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
-
-.production-progress{display:grid;gap:6px;min-width:0}.production-stage-label{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text-2);min-width:0}.production-stage-label>span:nth-child(2){flex:1;min-width:0;overflow-wrap:anywhere}.production-stage-label b{font-size:12px;color:var(--text)}.stage-symbol{width:25px;height:25px;border-radius:8px;background:var(--page-accent-soft);color:var(--page-accent);display:grid;place-items:center;flex:none}.stage-symbol svg{width:15px;height:15px}.production-progress .prog{height:7px;background:var(--bluegray);border-radius:99px;overflow:hidden}.production-progress .prog i{display:block;height:100%;border-radius:99px;background:var(--page-accent);transition:width .2s linear}.production-progress.stage-edit .stage-symbol{background:#FCE5E8;color:#C83249}.production-progress.stage-edit .prog i{background:#D94355}.production-progress.stage-upload .stage-symbol{background:#DDF5EC;color:#087F65}.production-progress.stage-published .stage-symbol{background:#DDF5EC;color:#087F65}
+/* BizSim v7.1 — per-page identity and mobile safety overrides, adapted from v8.4 reference. */
+body[data-module="market"] { --page-accent:#0E2A47; --page-accent-soft:#E5EDF6; }
+body[data-module="investments"], body[data-module="finance"] { --page-accent:#087F5B; --page-accent-soft:#DDF7EC; }
+body[data-module="business"] { --page-accent:#B45335; --page-accent-soft:#FBE9E2; }
+body[data-module="career"], body[data-module="studio"] { --page-accent:#6D28D9; --page-accent-soft:#F0E8FF; }
+body[data-module="education"] { --page-accent:#2563EB; --page-accent-soft:#E5EEFF; }
+body[data-module="dashboard"] { --page-accent:#0E2A47; --page-accent-soft:#E5EDF6; }
+body[data-module="calendar"] { --page-accent:#475569; --page-accent-soft:#E9EEF4; }
+body[data-module="life"] { --page-accent:#0F766E; --page-accent-soft:#DDF7F2; }
+body[data-module] .topbar h1, body[data-module] .mobile-head .t { text-decoration-color:var(--page-accent); }
+body[data-module] .panel-h { border-top:3px solid var(--page-accent, var(--navy)); }
+body[data-module] .nav-link[aria-current="page"] { box-shadow:inset 3px 0 0 var(--page-accent, var(--navy)); }
+.avatar-photo { display:inline-flex; align-items:center; justify-content:center; overflow:hidden; padding:0; background:var(--page-accent-soft,#E5EDF6); flex:none; }
+.avatar-photo img { width:100%; height:100%; display:block; object-fit:cover; }
+.avatar-picker { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.avatar-option { width:34px; height:34px; border:2px solid transparent; border-radius:50%; padding:0; background:transparent; cursor:pointer; overflow:hidden; }
+.avatar-option img { display:block; width:100%; height:100%; }
+.avatar-option[aria-pressed="true"] { border-color:var(--page-accent,#0E2A47); box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--page-accent,#0E2A47); }
+.avatar-option:focus-visible { outline:3px solid var(--page-accent,#0E2A47); outline-offset:3px; }
+@media(max-width:380px) { .avatar-option { width:30px;height:30px; } .avatar-picker { gap:5px; } }
+@media(prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; transition:none!important; animation:none!important; } }

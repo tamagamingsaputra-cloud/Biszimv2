@@ -92,9 +92,9 @@ export function thumb(c, w = 72) {
 
 // ————————————————————————— status —————————————————————————
 export const STATUS = {
-  draft: ['Draf', ''], queued: ['Dalam antrean', 'info'], research: ['Riset', 'info'], script: ['Penulisan naskah', 'info'], prep: ['Persiapan', 'info'],
-  record: ['Perekaman', 'info'], edit: ['Penyuntingan', 'info'], review: ['Peninjauan', 'info'], ready: ['Siap diterbitkan', 'pos'], scheduled: ['Terjadwal', 'pos'],
-  published: ['Diterbitkan', 'pos'], cancelled: ['Dibatalkan', 'neg'], failed: ['Gagal', 'neg'],
+  draft: ['Draft', ''], queued: ['In Queue', 'info'], research: ['Researching', 'info'], script: ['Researching · naskah', 'info'], prep: ['Recording · persiapan', 'info'],
+  record: ['Recording', 'info'], edit: ['Editing', 'info'], review: ['Reviewing', 'info'], ready: ['Ready to Publish', 'pos'], scheduled: ['Terjadwal', 'pos'],
+  published: ['Published', 'pos'], cancelled: ['Cancelled', 'neg'], failed: ['Failed', 'neg'],
 };
 export const statusChip = c => { const [l, k] = STATUS[c.status] || [c.status, '']; return `<span class="chip ${k}">${l}${c.paused ? ' · dijeda' : ''}</span>`; };
 
@@ -125,12 +125,7 @@ export function res(x, after) {
 /** Bilah progres yang nilainya dibaca dari state produksi (jam selesai / jam total). */
 export function progress(c) {
   const pct = c.hoursTotal ? Math.min(100, c.hoursDone / c.hoursTotal * 100) : 0;
-  const active = c.stages?.find(s => s.done < s.hours);
-  const stage = active ? STAGES.find(s => s.key === active.key) : null;
-  const stageKey = stage?.key || (c.status === 'ready' || c.status === 'scheduled' ? 'upload' : c.status === 'published' ? 'published' : 'queued');
-  const stageName = stage?.label || ({ upload: 'Siap diunggah', published: 'Sudah diterbitkan', queued: 'Menunggu proses' }[stageKey]);
-  const ic = stageKey === 'edit' ? 'scissors' : stageKey === 'upload' ? 'upload' : stageKey === 'published' ? 'check' : stageKey === 'record' ? 'camera' : stageKey === 'review' ? 'shield' : stageKey === 'prep' ? 'tool' : stageKey === 'script' ? 'edit' : stageKey === 'research' ? 'search' : 'clock';
-  return `<div class="production-progress stage-${stageKey}" data-stage="${stageKey}"><div class="production-stage-label"><span class="stage-symbol">${icon(ic)}</span><span>${esc(stageName)}</span><b class="num">${Math.round(pct)}%</b></div><div class="prog" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}" aria-label="Progres produksi ${esc(c.title)} — ${esc(stageName)}"><i style="width:${pct}%"></i></div></div>`;
+  return `<div class="prog" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}" aria-label="Progres produksi ${esc(c.title)}"><i style="width:${pct}%"></i></div>`;
 }
 export const stagePills = c => `<ol class="stage-pills">${c.stages.map(s => { const st = STAGES.find(x => x.key === s.key); const done = s.done >= s.hours, act = !done && c.stages.find(z => z.done < z.hours) === s; return `<li class="${done ? 'done' : act ? 'act' : ''}" title="${esc(st.label)} · ${fHours(s.done)} / ${fHours(s.hours)}${s.outsourced ? ' · editor lepas' : ''}">${esc(st.label)}${s.outsourced ? ' *' : ''}</li>`; }).join('')}</ol>`;
 

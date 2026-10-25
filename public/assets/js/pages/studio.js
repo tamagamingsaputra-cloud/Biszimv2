@@ -10,14 +10,14 @@ import * as V5 from './studio/money.js';
 import * as V6 from './studio/analytics.js';
 import { DISCLAIMER } from '../data/creator-platforms.js';
 
-const page = await mountShell('studio', 'Studio Kreator', { banner: false });
+const page = await mountShell('studio', 'Content Creator Studio', { banner: false });
 // Hook QA lokal saja (aktif hanya dengan parameter ?visitor= di localhost) untuk pengujian otomatis.
 if (new URLSearchParams(location.search).has('visitor') && ['localhost', '127.0.0.1'].includes(location.hostname)) window.__bizsimQA = { E, CR };
 
 const TABS = [
-  ['overview', 'Ringkasan', 'dashboard'], ['accounts', 'Kanal & Akun', 'users'], ['planner', 'Perencana Konten', 'calendar'], ['create', 'Buat Konten', 'edit'],
-  ['queue', 'Antrean Produksi', 'layers'], ['published', 'Terbit', 'video'], ['live', 'Studio Siaran', 'broadcast'], ['analytics', 'Audiens & Analitik', 'chart'],
-  ['monetization', 'Monetisasi', 'wallet'], ['sponsors', 'Sponsor & Kolaborasi', 'handshake'], ['gear', 'Peralatan & Keahlian', 'tool'],
+  ['overview', 'Overview', 'dashboard'], ['accounts', 'Channels & Accounts', 'users'], ['planner', 'Content Planner', 'calendar'], ['create', 'Create Content', 'edit'],
+  ['queue', 'Production Queue', 'layers'], ['published', 'Published', 'video'], ['live', 'Live Studio', 'broadcast'], ['analytics', 'Audience & Analytics', 'chart'],
+  ['monetization', 'Monetization', 'wallet'], ['sponsors', 'Sponsorship & Collab', 'handshake'], ['gear', 'Equipment & Skills', 'tool'],
 ];
 const VIEWS = {
   overview: V1.overview, accounts: V1.accountsView, account: V1.accountDetail, planner: V1.planner,
@@ -26,8 +26,8 @@ const VIEWS = {
 };
 const PARENT = { account: 'accounts', content: 'published' };
 
-page.innerHTML = `<div class="page-head studio-head"><div><div class="crumbs subtle"><a href="career.html">Karier & Pekerjaan</a> / Studio Kreator</div>
-  <p class="hide-m">Karier kreator opsional di samping sekolah dan pekerjaan. Setiap platform punya aturan sendiri; tayangan, follower, dan pendapatan dihitung bertahap oleh simulation engine dan bisa naik maupun turun.</p></div><span class="sim-badge hide-m">SIMULASI</span></div>
+page.innerHTML = `<div class="page-head studio-head"><div><div class="crumbs subtle"><a href="career.html">Career & Jobs</a> / Content Creator Studio</div>
+  <p class="hide-m">Karier kreator opsional di samping sekolah dan pekerjaan. Setiap platform punya aturan sendiri; tayangan, follower, dan pendapatan dihitung bertahap oleh simulation engine dan bisa naik maupun turun.</p></div><span class="sim-badge hide-m">Simulated</span></div>
   <div id="st-banner"></div>
   <nav class="tabs edu-tabs st-tabs" role="tablist" id="st-tabs" aria-label="Bagian Creator Studio"></nav>
   <div id="st-live-bar"></div>
@@ -46,7 +46,7 @@ function tabs() {
 function $(s) { return document.querySelector(s); }
 
 function banners() {
-  $('#st-banner').innerHTML = ''; // Kelayakan usia selalu ditentukan oleh engine, bukan toggle UI.
+  $('#st-banner').innerHTML = ''; // Tidak ada bypass usia; aturan usia selalu memakai umur simulasi karakter.
   const L = C().live;
   $('#st-live-bar').innerHTML = L && route[0] !== 'live' ? `<a class="live-strip" href="#live"><span class="live-dot"></span><b>LIVE</b> di ${esc(PLATFORMS[L.platform].name)} · ${L.minute} menit · ${Math.round(L.ccv)} menonton<span class="spacer"></span>Buka Live Studio ${icon('arrowR')}</a>` : '';
 }

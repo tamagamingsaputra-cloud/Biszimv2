@@ -8,16 +8,16 @@ import { createCharacter } from './onboarding.js';
 
 // Navigasi: sidebar desktop dikelompokkan; mobile memakai 4 tujuan utama + tombol Menu (lembar semua fitur).
 export const NAV = [
-  { id: 'dashboard', href: 'index.html', label: 'Beranda', short: 'Beranda', icon: 'dashboard', group: 'Hidup' },
+  { id: 'dashboard', href: 'index.html', label: 'Dashboard', short: 'Home', icon: 'dashboard', group: 'Hidup' },
   { id: 'life', href: 'life.html', label: 'Kehidupan', short: 'Hidup', icon: 'life', group: 'Hidup' },
   { id: 'calendar', href: 'calendar.html', label: 'Kalender & Jadwal', short: 'Kalender', icon: 'calendar', group: 'Hidup' },
   { id: 'finance', href: 'finance.html', label: 'Keuangan', short: 'Uang', icon: 'wallet', group: 'Uang & Aset' },
-  { id: 'market', href: 'market.html', label: 'Pasar Simulasi', short: 'Pasar', icon: 'market', group: 'Uang & Aset' },
-  { id: 'investments', href: 'investments.html', label: 'Investasi', short: 'Investasi', icon: 'invest', group: 'Uang & Aset' },
-  { id: 'business', href: 'business.html', label: 'Bisnis', short: 'Bisnis', icon: 'business', group: 'Uang & Aset' },
-  { id: 'education', href: 'education.html', label: 'Pendidikan', short: 'Sekolah', icon: 'education', group: 'Karier & Ilmu' },
-  { id: 'career', href: 'career.html', label: 'Karier & Pekerjaan', short: 'Karier', icon: 'career', group: 'Karier & Ilmu' },
-  { id: 'studio', href: 'studio.html', label: 'Studio Kreator', short: 'Kreator', icon: 'studio', group: 'Karier & Ilmu' },
+  { id: 'market', href: 'market.html', label: 'Asset Market', short: 'Market', icon: 'market', group: 'Uang & Aset' },
+  { id: 'investments', href: 'investments.html', label: 'Investments', short: 'Invest', icon: 'invest', group: 'Uang & Aset' },
+  { id: 'business', href: 'business.html', label: 'Business', short: 'Business', icon: 'business', group: 'Uang & Aset' },
+  { id: 'education', href: 'education.html', label: 'Education', short: 'Edu', icon: 'education', group: 'Karier & Ilmu' },
+  { id: 'career', href: 'career.html', label: 'Career & Jobs', short: 'Career', icon: 'career', group: 'Karier & Ilmu' },
+  { id: 'studio', href: 'studio.html', label: 'Creator Studio', short: 'Studio', icon: 'studio', group: 'Karier & Ilmu' },
 ];
 const BOTTOM = ['dashboard', 'life', 'finance', 'calendar'];
 // Isi lembar Menu (mobile) — setiap fitur dan sub-bagian penting, langsung ke tab yang dituju.
@@ -40,6 +40,7 @@ export const MENU = [
 const AGE_PAGE = { market: 'trading', investments: 'invest', business: 'business', career: 'gig' };
 
 export async function mountShell(pageId, title, opts = {}) {
+  document.body.dataset.module = pageId;
   const boot = document.createElement('div'); boot.className = 'boot-screen';
   boot.innerHTML = `<div class="stack" style="align-items:center"><div class="brand" style="color:var(--navy)"><span class="brand-mark">BZ</span> BIZSIM</div><p class="muted" role="status">Memuat profil & progres dari server…</p></div>`;
   document.body.prepend(boot);
@@ -61,21 +62,19 @@ export async function mountShell(pageId, title, opts = {}) {
   <div class="main">
     <header class="topbar">
       <h1>${title}</h1>
-      <span class="sim-badge live" title="Semua harga, gaji, biaya, dan hasil adalah simulasi game">SIMULASI</span>
+      <span class="sim-badge live" title="Semua harga, gaji, biaya, dan hasil adalah simulasi game">Simulated</span>
       <span class="sync-dot hide-m" id="sync" aria-live="polite"></span>
       <div class="clock" id="clock"></div>
       <div class="avatar" id="avatar"></div>
     </header>
     <header class="mobile-head">
-      <div class="r1"><span class="t">${title}</span><span class="sim-badge live">SIMULASI</span><button class="icon-btn" data-settings aria-label="Settings">${icon('settings')}</button></div>
+      <div class="r1"><span class="t">${title}</span><span class="sim-badge live">Simulated</span><button class="icon-btn" data-settings aria-label="Settings">${icon('settings')}</button></div>
       <div class="r2" id="mclock"></div>
     </header>
     <div id="age-banner"></div>
     <main class="content" id="page"></main>
   </div>
   <nav class="bottomnav" aria-label="Navigasi utama">${BOTTOM.map(id => NAV.find(n => n.id === id)).map(n => `<a href="${n.href}" ${n.id === pageId ? 'aria-current="page"' : ''}>${icon(n.icon)}${n.short}</a>`).join('')}<button type="button" class="bn-menu" data-menu aria-haspopup="dialog" ${BOTTOM.includes(pageId) ? '' : 'aria-current="page"'}>${icon('grid')}Menu</button></nav>`;
-  document.body.dataset.module = pageId;
-  document.body.dataset.designSystem = 'v71';
   document.body.prepend(app);
   // Simpan ke server sebelum pindah halaman (beacon/keepalive dibatasi 64 KB, jadi tunggu simpan selesai).
   app.addEventListener('click', async e => {
@@ -99,7 +98,7 @@ export async function mountShell(pageId, title, opts = {}) {
     $('#clock').innerHTML = when + ctr;
     $('#mclock').innerHTML = when + `<span class="row" style="gap:2px">${ctr}</span>`;
     const age = E.ageYears();
-    $('#avatar').innerHTML = `<img class="circle avatar-art" src="assets/img/avatars/${esc(E.P?.avatarId || 'avatar-1')}.svg" alt="Avatar karakter"><span class="hide-m"><b>${esc(E.P?.nickname || S.player.name)}</b><br><span class="subtle num">${age} th · ${rpShort(S.player.balance)}</span></span>`;
+    $('#avatar').innerHTML = `<span class="circle">${esc((E.P?.nickname || S.player.name).slice(0, 1).toUpperCase())}</span><span class="hide-m"><b>${esc(E.P?.nickname || S.player.name)}</b><br><span class="subtle num">${age} th · ${rpShort(S.player.balance)}</span></span>`;
     const ed = E.EDU?.edu; const eduTxt = ed?.status === 'enrolled' ? `${ed.stage} · ${ed.labelTerm}` : ed?.highest && ed.highest !== 'Tidak ada' ? `Lulus ${ed.highest}` : 'Belum bersekolah';
     $('#side-status').innerHTML = `${esc(S.player.name)} · <b>${age} th</b><br>Saldo <b class="num">${rpShort(S.player.balance)}</b><br>${esc(eduTxt)}`;
     const lock = opts.banner !== false && AGE_PAGE[pageId] ? E.ageLock(AGE_PAGE[pageId]) : null;
@@ -165,6 +164,11 @@ function settingsDialog() {
     <h3>Karakter baru</h3>
     <p class="subtle" style="margin:0">Membuat karakter baru memulai dunia simulasi dari awal (usia 6–7 tahun, calon siswa SD, saldo Rp 0). Catatan kelulusan karakter lama tetap tersimpan di Graduation Records.</p>
     <div><button class="btn" id="newchar">${icon('user')}Buat karakter baru</button></div>
+    <div class="divider"></div>
+    <h3>Alat prototipe (QA)</h3>
+    <p class="subtle" style="margin:0">Mempercepat waktu tanpa menjalankan aksi apa pun. Tugas atau ujian yang terlewat akan tercatat tidak dikerjakan — sama seperti melewatkannya saat bermain.</p>
+    <div class="row wrap"><button class="btn" data-skipn="7" ${E.liveActive() ? 'disabled' : ''}>Lewati 7 hari</button><button class="btn" data-skipn="28" ${E.liveActive() ? 'disabled' : ''}>Lewati 28 hari (1 periode)</button></div>
+    ${E.liveActive() ? '<p class="subtle" style="margin:0">Lewati hari dinonaktifkan selama live berjalan.</p>' : ''}
   </div>
   <div class="dlg-f"><button class="btn primary" data-close>Tutup</button></div>`, {
     onMount: d => {
@@ -175,6 +179,7 @@ function settingsDialog() {
         if (!r) { E.start(); return; }
         await E.newGameFor(r); location.reload();
       });
+      d.querySelectorAll('[data-skipn]').forEach(b => b.addEventListener('click', async () => { b.disabled = true; b.textContent = 'Memproses…'; E.skipToNextDay(+b.dataset.skipn); await E.syncEducation(); await E.flush(); d.close(); location.reload(); }));
     }
   });
 }

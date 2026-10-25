@@ -8,7 +8,7 @@ import { rp, rpShort, icon, esc, $, $$, toast, openDialog, empty, fmtDate, num }
 import { EDUCATION_LEVELS } from '../data/job-catalog.js';
 import { OPPORTUNITIES } from '../data/education-opportunities.js';
 
-const page = await mountShell('education', 'Pendidikan');
+const page = await mountShell('education', 'Education');
 const ROUTES = [
   ['overview', 'Ringkasan', 'education'], ['catalog', 'Katalog sekolah', 'school'], ['timetable', 'Jadwal', 'calendar'],
   ['subjects', 'Mapel & materi', 'book'], ['exam', 'Ruang ujian', 'exam'], ['results', 'Nilai & rapor', 'chart'], ['records', 'Riwayat kelulusan', 'doc'],

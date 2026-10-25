@@ -1,13 +1,9 @@
 // API client — semua progres (profil, pendidikan, ujian, simpanan game) disimpan di server BizSim.
-// Base URL berasal dari placeholder deploy `__PORT_8000__` di <head> HTML. Saat dijalankan lokal
-// (node server/server.cjs) server yang sama juga melayani folder public/, jadi cukup same-origin.
+// API selalu same-origin agar cocok dengan server lokal maupun route /api pada Vercel.
 const LOCAL = new Set(['localhost', '127.0.0.1', '[::1]']);
 const raw = String(window.__API_BASE__ || '');
-const unresolved = !raw || raw.startsWith('__PORT_');
-if (unresolved && !LOCAL.has(location.hostname) && location.protocol !== 'file:') {
-  console.error('Placeholder backend belum diganti saat deploy.');
-}
-export const API = unresolved ? (location.port === '8000' ? '' : 'http://localhost:8000') : raw.replace(/\/$/, '');
+const unresolved = raw.startsWith('__PORT_');
+export const API = unresolved ? (LOCAL.has(location.hostname) && location.port !== '8000' ? 'http://localhost:8000' : '') : raw.replace(/\/$/, '');
 const devVisitor = new URLSearchParams(location.search).get('visitor'); // hanya untuk QA lokal (isolasi pemain uji)
 
 export async function api(method, path, body, opts = {}) {
