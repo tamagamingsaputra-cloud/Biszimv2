@@ -72,9 +72,9 @@ export function monetization(acc) {
 }
 const unlocked = (acc, src) => !!monetization(acc)[src]?.unlocked;
 export const tierOf = x => { const t = Object.values(x.accounts).reduce((a, c) => a + c.fol, 0); let r = TIERS[0][1]; for (const [m, n] of TIERS) if (t >= m) r = n; return r; };
-const stageOf = p => p >= 100 ? 'ready' : p >= 90 ? 'reviewing' : p >= 68 ? 'editing' : p >= 42 ? 'recording' : p >= 30 ? 'preparing' : p >= 12 ? 'scripting' : 'researching';
+const stageOf = p => p >= 100 ? 'ready' : p >= 92 ? 'uploading' : p >= 82 ? 'reviewing' : p >= 55 ? 'editing' : p >= 32 ? 'recording' : p >= 22 ? 'preparing' : p >= 10 ? 'scripting' : 'researching';
 const needCost = (P, it) => R(P.types[it.type].c * TOPICS[it.topic].cost * QUALITY[it.quality].c);
-const totalHours = (x, P, it) => P.types[it.type].h * QUALITY[it.quality].t * TOPICS[it.topic].cx / (.6 + skillAvg(x, P.types[it.type].sk) / 100 * .8) / equipF(x);
+const totalHours = (x, P, it) => { const ty = P.types[it.type]; const durationFactor = ty.dur > 0 ? Math.sqrt(clamp((Number(it.durationSec) || ty.dur) / ty.dur, .25, 4)) : 1; return ty.h * durationFactor * QUALITY[it.quality].t * TOPICS[it.topic].cx / (.6 + skillAvg(x, ty.sk) / 100 * .8) / equipF(x); };
 
 function newAccount(platform, handle, d) {
   return { platform, handle, created: d, fol: 0, views: 0, watch: 0, lives: 0, posts: 0, rep: 0, pending: 0, gross: 0, fees: 0, expenses: 0, tax: 0, paid: 0, earned: { ads: 0, gifts: 0, memberships: 0, sponsorship: 0, affiliate: 0 }, nextPayout: d + 15, hist: [], alerts: [], affinity: {}, obligations: [], offers: [], seen: {} };
@@ -123,11 +123,18 @@ function publish(s, x, it, d, userId, h) {
 }
 
 function dayTick(s, x, d, userId, h) {
-  /* produksi: progres berasal dari jam kerja yang benar-benar dikerjakan per hari, berbagi kapasitas antar item aktif */
-  const active = x.queue.filter(q => ['researching', 'scripting', 'preparing', 'recording', 'editing', 'reviewing', 'stalled', 'queued'].includes(q.status)).slice(0, slots(s));
-  for (const q of x.queue) if (q.status === 'queued' && !active.includes(q)) { /* tetap menunggu giliran */ }
+  /* Produksi menunggu satu hari simulasi penuh setelah dimulai. Job yang menunggu tidak memakan slot harian. */
+  for (const q of x.queue) {
+    if (q.status !== 'queued') continue;
+    const startDay = Number.isFinite(Number(q.startedDay)) ? Number(q.startedDay) : Number(q.created || d);
+    if (d > startDay) q.status = 'researching';
+  }
+  const productive = ['researching', 'scripting', 'preparing', 'recording', 'editing', 'reviewing', 'uploading', 'stalled'];
+  const active = x.queue.filter(q => productive.includes(q.status)).slice(0, slots(s));
   const each = active.length ? hoursPerDay(s) / active.length : 0;
   for (const it of active) {
+    const startDay = Number.isFinite(Number(it.startedDay)) ? Number(it.startedDay) : Number(it.created || d);
+    if (d <= startDay) continue;
     const P = PLATFORMS[it.platform], acc = x.accounts[it.platform], dh = Math.min(each, it.total - it.done), inc = it.budget * dh / it.total;
     if (s.cash < inc) { if (it.status !== 'stalled') { it.prev = it.status; alert(acc, d, `Produksi "${it.title}" tertahan: dana personal kurang ${fm(inc - s.cash)}.`, h, s); } it.status = 'stalled'; continue; }
     s.cash -= inc; it.spent += inc; acc.expenses += inc; it.done += dh; it.progress = Math.min(100, it.done / it.total * 100);
@@ -196,18 +203,18 @@ export async function route({ p, m, s, user, req, h }) {
   if (p === '/api/v731/creator/content') {
     if (!P || !acc) return err('Buat akun platform terlebih dahulu.'); const type = clean(b.type, 20), topic = clean(b.topic, 20), quality = clean(b.quality, 10);
     if (!P.types[type]) return err('Format tidak didukung platform ini.'); if (!TOPICS[topic]) return err('Topik tidak valid.'); if (!QUALITY[quality]) return err('Kualitas tidak valid.');
-    const title = clean(b.title, 80); if (title.length < 3) return err('Judul minimal 3 karakter.'); if (x.queue.length >= 12) return err('Antrean penuh (maks. 12).');
+    const title = clean(b.title, 80); if (title.length < 3) return err('Judul minimal 3 karakter.'); const durationSec = P.types[type].dur > 0 ? Number(b.durationSec || P.types[type].dur) : 0; if (P.types[type].dur > 0 && (!Number.isFinite(durationSec) || durationSec < 5 || durationSec > 1800)) return err('Durasi video harus antara 5 detik dan 30 menit.'); if (x.queue.length >= 12) return err('Antrean penuh (maks. 12).');
     const nc = needCost(P, { type, topic, quality }), budget = R(Number(b.budget) || nc); if (budget < nc * .5 || budget > nc * 3) return err(`Anggaran harus antara ${fm(nc * .5)} dan ${fm(nc * 3)}.`);
     const start = !!b.start; if (start && s.cash < budget * .15) return err('Dana personal belum cukup untuk memulai produksi.');
-    const it = { id: `c${++x.nid}`, platform: pl, type, topic, quality, title, caption: clean(b.caption, 200), budget, bf: clamp(budget / nc, .5, 1.2), spent: 0, done: 0, progress: 0, status: start ? 'queued' : 'draft', created: d, eta: null };
+    const it = { id: `c${++x.nid}`, platform: pl, type, topic, quality, title, caption: clean(b.caption, 200), durationSec, budget, bf: clamp(budget / nc, .5, 1.2), spent: 0, done: 0, progress: 0, status: start ? 'queued' : 'draft', created: d, startedDay: start ? d + 1 : null, eta: null };
     it.total = totalHours(x, P, it); x.queue.push(it); return done({ ok: true, id: it.id });
   }
   const it = x.queue.find(q => q.id === clean(b.id, 12));
   if (p.startsWith('/api/v731/creator/content/')) {
     if (!it) return err('Konten tidak ditemukan.', 404); const act = p.split('/').pop();
-    if (act === 'start') { if (it.status !== 'draft') return err('Hanya draft yang bisa dimulai.'); if (s.cash < it.budget * .15) return err('Dana personal belum cukup untuk memulai produksi.'); it.status = 'queued'; return done({ ok: true }); }
+    if (act === 'start') { if (it.status !== 'draft') return err('Hanya draft yang bisa dimulai.'); if (s.cash < it.budget * .15) return err('Dana personal belum cukup untuk memulai produksi.'); it.status = 'queued'; it.startedDay = d + 1; it.startedAtDay = d; return done({ ok: true, startsOnDay: d + 2, message: 'Hari simulasi berikutnya menjadi jeda; progress mulai setelah itu.' }); }
     if (act === 'cancel') { if (['ready', 'published'].includes(it.status)) return err('Konten sudah selesai; gunakan publish atau hapus draft.'); it.status = 'cancelled'; x.queue = x.queue.filter(q => q !== it); return done({ ok: true, lost: R(it.spent) }); }
-    if (act === 'duplicate') { if (x.queue.length >= 12) return err('Antrean penuh.'); const c = { ...it, id: `c${++x.nid}`, status: 'draft', spent: 0, done: 0, progress: 0, eta: null, title: `${it.title} (salinan)`.slice(0, 80) }; x.queue.push(c); return done({ ok: true, id: c.id }); }
+    if (act === 'duplicate') { if (x.queue.length >= 12) return err('Antrean penuh.'); const c = { ...it, id: `c${++x.nid}`, status: 'draft', spent: 0, done: 0, progress: 0, startedDay: null, startedAtDay: null, eta: null, title: `${it.title} (salinan)`.slice(0, 80) }; x.queue.push(c); return done({ ok: true, id: c.id }); }
     if (act === 'priority') { const i = x.queue.indexOf(it), j = b.dir === 'up' ? i - 1 : i + 1; if (j < 0 || j >= x.queue.length) return err('Tidak bisa dipindah.'); [x.queue[i], x.queue[j]] = [x.queue[j], x.queue[i]]; return done({ ok: true }); }
     if (act === 'publish') { if (it.status !== 'ready') return err('Konten belum siap dipublikasikan.'); const sd = Math.floor(Number(b.scheduleDay) || 0); if (sd > d) { it.status = 'scheduled'; it.pubDay = sd; return done({ ok: true, scheduled: sd }); } publish(s, x, it, d, user.id, h); return done({ ok: true, item: x.published[0] }); }
   }

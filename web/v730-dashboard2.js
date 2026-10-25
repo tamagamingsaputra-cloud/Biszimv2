@@ -119,13 +119,20 @@
     <div class="bs-empty-actions"><button class="btn primary" onclick="App.go('career')">${ic('briefcase', 15)} Cari Pekerjaan</button><button class="btn" onclick="App.openCreateBusiness && App.openCreateBusiness()">${ic('store', 15)} Buka Bisnis</button></div>
   </div></div>`;
 
-  /* ---------- pasang ke App.dashboard (membungkus versi sebelumnya, tidak menghapusnya) ---------- */
-  const dash2 = App.dashboard;
+  /* ---------- compose the dashboard from authoritative modules only ----------
+     The legacy dashboard renderer underneath this module injects an old greeting,
+     duplicate KPI strip and a decorative static financial chart. v740 already owns
+     time, needs, quick actions, agenda and life summary; retaining dash2() duplicated
+     content underneath those modules and caused the profile/clock overlay in mobile.
+     Keep the useful state-backed investment, business and activity summaries here. */
   App.dashboard = () => {
     try {
       if (isNewPlayer()) return emptyStateHTML();
-      return statusStripHTML() + dash2() + investSectionHTML() + businessSectionHTML() + activitySectionHTML();
-    } catch (e) { return dash2(); }
+      return statusStripHTML() + investSectionHTML() + businessSectionHTML() + activitySectionHTML();
+    } catch (e) {
+      console.warn('Dashboard summary render failed', e);
+      return `<div class="empty">Ringkasan dashboard tidak dapat dimuat. Perbarui data untuk mencoba lagi.</div>`;
+    }
   };
 
   if (App.state) App.render();

@@ -5,11 +5,11 @@
   App.render = function () {
     const result = oldRender.apply(this, arguments);
     try {
-      document.title = 'BizSim v7.7.0 A — Economic Life Simulator';
+      document.title = 'BizSim v8.2.1 A — Economic Life Simulator';
       const brandVersion = document.querySelector('.sidebar .brand small');
-      if (brandVersion) brandVersion.textContent = 'v7.7.0 · A';
+      if (brandVersion) brandVersion.textContent = 'v8.2.1 · A';
       const footer = document.querySelector('.sidebar-footer');
-      if (footer && /Build:\s*7\.3\.0/.test(footer.textContent || '')) footer.innerHTML = footer.innerHTML.replace(/Build:\s*7\.3\.0/, 'Build: 7.7.0 A');
+      if (footer && /Build:\s*7\.3\.0/.test(footer.textContent || '')) footer.innerHTML = footer.innerHTML.replace(/Build:\s*7\.3\.0/, 'Build: 8.2.0 A');
       const root = document.querySelector('.content');
       if (root) root.setAttribute('data-bizsim-view', App.view || 'dashboard');
       document.querySelectorAll('.market-card').forEach(card => {

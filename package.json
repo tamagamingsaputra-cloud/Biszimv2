@@ -1,8 +1,8 @@
 {
   "name": "bizsim",
-  "version": "8.1.0",
+  "version": "8.2.1",
   "private": true,
-  "description": "BizSim AI comparison variant A \u2014 page-specific UI redesign, bundled SVG asset pack, responsive and dark trading terminal",
+  "description": "BizSim economic life simulation \u2014 AI Comparison A v8.2.1 with structural dashboard cleanup, route-aware page titles and simulation-driven creator production",
   "scripts": {
     "start": "node server/server.js",
     "dev": "node server/server.js",
@@ -16,7 +16,8 @@
     "test:v781": "node tests/v781-payroll-calendar-test.mjs",
     "check:v750": "node --check netlify/functions/v750-edu-data.mjs && node --check netlify/functions/v750-edu-bank.mjs && node --check netlify/functions/v750-education.mjs && node --check web/v750-education.js",
     "test:education": "node tests/v750-edu-bank-test.mjs && node tests/v750-education-test.mjs && node tests/v750-education-extra-test.mjs && node tests/v750-education-ui-smoke.mjs",
-    "test:all": "npm run check && npm run check:v740 && npm run check:v750 && npm run test:v740 && npm run test:v781 && npm run test:creator && npm run test:e2e && npm run test:education && npm run test:smoke"
+    "test:all": "npm run check && npm run check:v740 && npm run check:v750 && npm run test:v740 && npm run test:v781 && npm run test:creator && npm run test:e2e && npm run test:education && npm run test:smoke && npm run test:v821-ui",
+    "test:v821-ui": "node tests/v821-ui-layout-test.mjs"
   },
   "engines": {
     "node": ">=22.12.0"
