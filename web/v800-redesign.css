@@ -47,7 +47,7 @@ button:focus-visible,.btn:focus-visible,[role=button]:focus-visible,a:focus-visi
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
 /* Concrete selectors for the current renderer (Asset Market cards are .market-card). */
 #app:has(.market-card) .content{background:var(--bs-market-bg);color:var(--bs-market-text);border-radius:18px;padding:14px;margin-top:10px}
-#app:has(.market-card) .page-head{position:relative;background:#071a28 url('assets/uiux-v820/illustrations/market-terminal.svg') right center/auto 100% no-repeat;border:1px solid #1d3b4b;border-radius:18px;padding:18px;margin-bottom:14px;isolation:isolate}
+#app:has(.market-card) .page-head{position:relative;background:#071a28 url('../assets/uiux-v800/illustrations/market-terminal.svg') right center/auto 100% no-repeat;border:1px solid #1d3b4b;border-radius:18px;padding:18px;margin-bottom:14px;isolation:isolate}
 #app:has(.market-card) .page-head:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#071a28 0%,rgba(7,26,40,.96) 52%,rgba(7,26,40,.35) 100%);z-index:-1;border-radius:inherit}
 #app:has(.market-card) .page-head h1{color:#f3f8fc;font-family:system-ui,sans-serif}
 #app:has(.market-card) .page-head p{color:#a9bdca;max-width:760px}

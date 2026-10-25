@@ -1,12 +1,12 @@
 {
   "name": "bizsim",
-  "version": "8.2.1",
+  "version": "8.3.0",
   "private": true,
-  "description": "BizSim economic life simulation \u2014 AI Comparison A v8.2.1 with structural dashboard cleanup, route-aware page titles and simulation-driven creator production",
+  "description": "BizSim AI comparison variant A \u2014 major mobile UX repair, page-specific visual identities, character/education system polish and dark simulated trading terminal",
   "scripts": {
     "start": "node server/server.js",
     "dev": "node server/server.js",
-    "check": "node --check server/server.js && node --check server/db.js && node --check web/app.js && node --check web/v655.js && node --check web/v700-core.js && node --check web/v700-invest.js && node --check web/v700-people.js && node --check web/v710-characters.js && node --check netlify/functions/v710.mjs && node --check netlify/functions/v700.mjs && node --check netlify/functions/v700-engine.mjs && node --check netlify/functions/v700-data.mjs && node --check netlify/functions/v655.mjs && node --check netlify/functions/api.mjs && node --check web/v720-ui.js && node --check web/v720-invest.js && node --check web/v720-life.js && node --check netlify/functions/v720.mjs && node --check netlify/functions/v720-data.mjs && node --check web/local-api.js && node --check web/v730-icons.js && node --check web/v730-art.js && node --check web/v730-shell.js && node --check web/v730-pages.js && node --check web/v730-live.js && node --check netlify/functions/v730.mjs && node --check netlify/functions/v730-live.mjs && node --check netlify/functions/v731-creator.mjs && node --check web/v730-dashboard2.js && node --check web/v730-market2.js && node --check web/v730-business2.js && node --check web/v730-career2.js && node --check web/v730-creator2.js",
+    "check": "node --check server/server.js && node --check server/db.js && node --check web/app.js && node --check web/v655.js && node --check web/v700-core.js && node --check web/v700-invest.js && node --check web/v700-people.js && node --check web/v710-characters.js && node --check netlify/functions/v710.mjs && node --check netlify/functions/v700.mjs && node --check netlify/functions/v700-engine.mjs && node --check netlify/functions/v700-data.mjs && node --check netlify/functions/v655.mjs && node --check netlify/functions/api.mjs && node --check web/v720-ui.js && node --check web/v720-invest.js && node --check web/v720-life.js && node --check netlify/functions/v720.mjs && node --check netlify/functions/v720-data.mjs && node --check web/local-api.js && node --check web/v730-icons.js && node --check web/v730-art.js && node --check web/v730-shell.js && node --check web/v730-pages.js && node --check web/v730-live.js && node --check netlify/functions/v730.mjs && node --check netlify/functions/v730-live.mjs && node --check netlify/functions/v731-creator.mjs && node --check web/v730-dashboard2.js && node --check web/v730-market2.js && node --check web/v730-business2.js && node --check web/v730-career2.js && node --check web/v730-creator2.js && node --check web/v830-profile-bio.js",
     "test:smoke": "node tests/smoke-test.js",
     "sync:local": "node scripts/sync-local-engine.mjs",
     "test:creator": "node tests/creator-studio-test.mjs && node tests/creator-ui-smoke.mjs",
@@ -16,8 +16,7 @@
     "test:v781": "node tests/v781-payroll-calendar-test.mjs",
     "check:v750": "node --check netlify/functions/v750-edu-data.mjs && node --check netlify/functions/v750-edu-bank.mjs && node --check netlify/functions/v750-education.mjs && node --check web/v750-education.js",
     "test:education": "node tests/v750-edu-bank-test.mjs && node tests/v750-education-test.mjs && node tests/v750-education-extra-test.mjs && node tests/v750-education-ui-smoke.mjs",
-    "test:all": "npm run check && npm run check:v740 && npm run check:v750 && npm run test:v740 && npm run test:v781 && npm run test:creator && npm run test:e2e && npm run test:education && npm run test:smoke && npm run test:v821-ui",
-    "test:v821-ui": "node tests/v821-ui-layout-test.mjs"
+    "test:all": "npm run check && npm run check:v740 && npm run check:v750 && npm run test:v740 && npm run test:v781 && npm run test:creator && npm run test:e2e && npm run test:education && npm run test:smoke"
   },
   "engines": {
     "node": ">=22.12.0"

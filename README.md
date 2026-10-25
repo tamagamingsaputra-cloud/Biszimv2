@@ -1,43 +1,34 @@
-# BizSim v8.2.1 — AI Comparison A
 
-This is the isolated **Comparison A** project, prepared for side-by-side evaluation against a separate AI build. Immediate source baseline: BizSim v8.2.0 AI Comparison A, built on the v8.1.0 source family; it preserves the existing business, simulation, career, investment, market, life, education, and creator engines while applying targeted UI/runtime repairs.
+## Current iteration: v8.1.0
+Creator production is day-tick gated, video-duration aware, and uses icon-led stage progress. See `PRD-BizSim-v8.1.0.md`, `BizSim-Test-Report-v8.1.0.md`, and `BizSim-Chat-Handoff-v8.1.0.md`.
 
-## Main changes in v8.2.1
-- Replaced the global repeated hero/snapshot with a compact Dashboard-only profile strip; other pages keep their own content hierarchy.
-- Rebuilt the application shell and navigation icon usage around local SVG assets under `web/assets/uiux-v820/`.
-- Removed the obsolete floating simulation control that overlapped content and bottom navigation; the simulation clock remains in the dashboard's real clock component.
-- Applied page-specific layout and color tokens: dark navy trading terminal, emerald investment/portfolio, terracotta business, indigo career, blue education, gold profile, violet creator studio.
-- Fixed the stock detail/order sheet to keep its header/footer visible while the body scrolls; market orders hide the limit-price field.
-- Made trading order actions sit in a fixed safe-area-aware tray on mobile and sticky in desktop layout.
-- Creator production uses state-driven steps and icons, red scissors editing progress and teal upload progress. Starting production spends one full simulation day at 0% progress/0 cost; work begins after that wait day. Video duration scales the required production time.
-- Removed legacy Creator tab references and corrected smoke tests to select an available port automatically.
+# BizSim v7.8.1 — AI Comparison A
 
-- v8.2.1 removes the legacy Dashboard body that was being appended underneath the newer clock/needs module; the duplicate greeting/KPI stack and decorative static chart no longer render. The single active dashboard keeps state-backed life summary, level/date/debt, investments, businesses and recent activity.
+Incremental improvement release based on the v7.8.0 AI Comparison A package. The project is intended for side-by-side evaluation against another AI implementation. Keep this folder separate from the original baseline and Comparison B.
 
-## Run locally
-Requires Node.js >=22.12.
+## v7.8.1 highlights
+- Payroll is conditional on active employment and a positive salary.
+- Calendar salary events follow the same eligibility rule; duplicate month-end salary messaging was removed from the daily-pay model.
+- Creator Studio engine/UI tests and existing simulation suites are retained.
+- Smoke test uses port 18787 by default to avoid collisions; set `BIZSIM_TEST_PORT` to change it.
+- PRD, handoff, changelog, and test report are in `docs/`.
 
-```sh
-npm install
-npm start
-```
+## Local development
+Requires Node.js 22+. Run `npm install`, then `npm start`; open `http://localhost:8787`.
 
-Open `http://localhost:8787` (unless `PORT` is configured differently). The deployment config publishes `web/` as the frontend. Netlify functions are in `netlify/functions/`.
+## Tests
+Run `npm run test:all`. Last recorded run passed on Node v22.16.0. See `docs/TEST-REPORT-V7.8.1.md` for the suite summary and limitations.
 
-## Test
+## Important limitations
+Automated tests do not replace visual QA on a physical Android device and desktop browser. Some advanced creator platform capabilities remain disabled/incomplete. An existing Node `MODULE_TYPELESS_PACKAGE_JSON` warning remains for `web/engine/api.js`.
 
-```sh
-npm run test:all
-```
+## Project documentation
+- `docs/PRD_V7.8.1.md` — current PRD and constraints
+- `docs/CHAT-HANDOFF-V7.8.1.md` — continue in a new chat
+- `docs/CHANGELOG_V7.8.1.md` — changes from v7.8.0
+- `docs/TEST-REPORT-V7.8.1.md` — test results and caveats
 
-The complete test suite passed on Node.js v22.16.0 in the authoring environment after the free-port smoke-test fix. Details: `docs/releases/v8.2.1/BizSim-Test-Report-v8.2.1.md`.
+---
 
-## Release documents
-- `docs/releases/v8.2.1/PRD-BizSim-v8.2.1.md`
-- `docs/releases/v8.2.1/BizSim-Chat-Handoff-v8.2.1.md`
-- `docs/releases/v8.2.1/BizSim-Changelog-v8.2.1.md`
-- `docs/releases/v8.2.1/BizSim-Test-Report-v8.2.1.md`
-- Historical release notes are retained under `docs/archive/` for traceability; they are not the current version's instructions.
-
-## Important verification boundary
-Automated tests and source-structure tests passed. Chromium headless attempts were blocked by environment policy for localhost and file URLs, so this release does **not** claim visual certification on a physical Android device, desktop browser, or the user's current Vercel production deployment. The provided screenshot showed the old `bizsim-v7.vercel.app` deployment; this archive must be deployed to a separate preview/project before its changed shell and CSS will be visible there. No production deployment was performed by this package operation.
+## Historical baseline note
+This package retains historical release notes and original feature documentation for traceability. Those older documents describe earlier releases and should not be mistaken for the current package version.

@@ -15,7 +15,7 @@ const WD = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 export function ensure750(s) {
   if (!s.v750) s.v750 = { version: VERSION };
   const v = s.v750; v.version = VERSION;
-  const e = v.edu ||= { scenario: 'adult', nid: 0, day: s.day || 1, name: '', enroll: null, history: [], invoices: [], tasks: [], exams: [], session: null, entrance: {}, entranceLog: {}, records: [], reports: [], reviews: {}, study: { week: -1, alloc: {}, used: {} }, log: [] };
+  const e = v.edu ||= { scenario: 'sd', nid: 0, day: s.day || 1, name: '', enroll: null, history: [], invoices: [], tasks: [], exams: [], session: null, entrance: {}, entranceLog: {}, records: [], reports: [], reviews: {}, study: { week: -1, alloc: {}, used: {} }, log: [] };
   e.entrance ||= {}; e.entranceLog ||= {}; e.reviews ||= {}; e.study ||= { week: -1, alloc: {}, used: {} }; e.log ||= [];
   return v;
 }

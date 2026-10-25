@@ -1,15 +1,11 @@
 const http=require('http');
 const {spawn}=require('child_process');
-const net=require('net');
-let port=Number(process.env.BIZSIM_TEST_PORT||0);
-let base='';
+const port=Number(process.env.BIZSIM_TEST_PORT||18787);
+const base=`http://127.0.0.1:${port}`;
 const unique=`qa_${Date.now()}@example.com`;
 let proc;
-function getFreePort(){return new Promise((resolve,reject)=>{const srv=net.createServer();srv.once('error',reject);srv.listen(0,'127.0.0.1',()=>{const p=srv.address().port;srv.close(err=>err?reject(err):resolve(p));});});}
 function req(path,options={}){return new Promise((resolve,reject)=>{const u=new URL(base+path);const r=http.request({hostname:u.hostname,port:u.port,path:u.pathname+u.search,method:options.method||'GET',headers:options.headers||{}},res=>{let b='';res.on('data',c=>b+=c);res.on('end',()=>resolve({status:res.statusCode,headers:res.headers,body:b}))});r.on('error',reject);if(options.body)r.write(options.body);r.end()})}
 (async()=>{try{
- if(!port) port=await getFreePort();
- base=`http://127.0.0.1:${port}`;
  proc=spawn(process.execPath,['server/server.js'],{stdio:['ignore','pipe','pipe'],env:{...process.env,PORT:String(port)}});await new Promise(r=>setTimeout(r,700));
  const out=[];const check=(n,v)=>{out.push([n,!!v]);if(!v)throw new Error('FAIL '+n)};
  check('health',(await req('/api/health')).status===200);

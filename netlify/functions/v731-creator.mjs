@@ -122,16 +122,12 @@ function publish(s, x, it, d, userId, h) {
 }
 
 function dayTick(s, x, d, userId, h) {
-  /* Produksi menunggu satu hari simulasi penuh setelah dimulai. Job yang menunggu tidak memakan slot harian. */
-  for (const q of x.queue) {
-    if (q.status !== 'queued') continue;
-    const startDay = Number.isFinite(Number(q.startedDay)) ? Number(q.startedDay) : Number(q.created || d);
-    if (d > startDay) q.status = 'researching';
-  }
-  const productive = ['researching', 'scripting', 'preparing', 'recording', 'editing', 'reviewing', 'uploading', 'stalled'];
-  const active = x.queue.filter(q => productive.includes(q.status)).slice(0, slots(s));
+  /* produksi: progres berasal dari jam kerja yang benar-benar dikerjakan per hari, berbagi kapasitas antar item aktif */
+  const active = x.queue.filter(q => ['researching', 'scripting', 'preparing', 'recording', 'editing', 'reviewing', 'uploading', 'stalled', 'queued'].includes(q.status)).slice(0, slots(s));
+  for (const q of x.queue) if (q.status === 'queued' && !active.includes(q)) { /* tetap menunggu giliran */ }
   const each = active.length ? hoursPerDay(s) / active.length : 0;
   for (const it of active) {
+    /* Produksi baru mulai pada hari simulasi berikutnya, bukan langsung pada hari tombol ditekan. */
     const startDay = Number.isFinite(Number(it.startedDay)) ? Number(it.startedDay) : Number(it.created || d);
     if (d <= startDay) continue;
     const P = PLATFORMS[it.platform], acc = x.accounts[it.platform], dh = Math.min(each, it.total - it.done), inc = it.budget * dh / it.total;
@@ -205,13 +201,13 @@ export async function route({ p, m, s, user, req, h }) {
     const title = clean(b.title, 80); if (title.length < 3) return err('Judul minimal 3 karakter.'); const durationSec = P.types[type].dur > 0 ? Number(b.durationSec || P.types[type].dur) : 0; if (P.types[type].dur > 0 && (!Number.isFinite(durationSec) || durationSec < 5 || durationSec > 1800)) return err('Durasi video harus antara 5 detik dan 30 menit.'); if (x.queue.length >= 12) return err('Antrean penuh (maks. 12).');
     const nc = needCost(P, { type, topic, quality }), budget = R(Number(b.budget) || nc); if (budget < nc * .5 || budget > nc * 3) return err(`Anggaran harus antara ${fm(nc * .5)} dan ${fm(nc * 3)}.`);
     const start = !!b.start; if (start && s.cash < budget * .15) return err('Dana personal belum cukup untuk memulai produksi.');
-    const it = { id: `c${++x.nid}`, platform: pl, type, topic, quality, title, caption: clean(b.caption, 200), durationSec, budget, bf: clamp(budget / nc, .5, 1.2), spent: 0, done: 0, progress: 0, status: start ? 'queued' : 'draft', created: d, startedDay: start ? d + 1 : null, eta: null };
+    const it = { id: `c${++x.nid}`, platform: pl, type, topic, quality, title, caption: clean(b.caption, 200), durationSec, budget, bf: clamp(budget / nc, .5, 1.2), spent: 0, done: 0, progress: 0, status: start ? 'queued' : 'draft', created: d, startedDay: start ? d : null, eta: null };
     it.total = totalHours(x, P, it); x.queue.push(it); return done({ ok: true, id: it.id });
   }
   const it = x.queue.find(q => q.id === clean(b.id, 12));
   if (p.startsWith('/api/v731/creator/content/')) {
     if (!it) return err('Konten tidak ditemukan.', 404); const act = p.split('/').pop();
-    if (act === 'start') { if (it.status !== 'draft') return err('Hanya draft yang bisa dimulai.'); if (s.cash < it.budget * .15) return err('Dana personal belum cukup untuk memulai produksi.'); it.status = 'queued'; it.startedDay = d + 1; it.startedAtDay = d; return done({ ok: true, startsOnDay: d + 2, message: 'Hari simulasi berikutnya menjadi jeda; progress mulai setelah itu.' }); }
+    if (act === 'start') { if (it.status !== 'draft') return err('Hanya draft yang bisa dimulai.'); if (s.cash < it.budget * .15) return err('Dana personal belum cukup untuk memulai produksi.'); it.status = 'queued'; it.startedDay = d; it.startedAtDay = d; return done({ ok: true, startsOnDay: d + 1, message: 'Produksi dimulai setelah hari simulasi berikutnya dijalankan.' }); }
     if (act === 'cancel') { if (['ready', 'published'].includes(it.status)) return err('Konten sudah selesai; gunakan publish atau hapus draft.'); it.status = 'cancelled'; x.queue = x.queue.filter(q => q !== it); return done({ ok: true, lost: R(it.spent) }); }
     if (act === 'duplicate') { if (x.queue.length >= 12) return err('Antrean penuh.'); const c = { ...it, id: `c${++x.nid}`, status: 'draft', spent: 0, done: 0, progress: 0, startedDay: null, startedAtDay: null, eta: null, title: `${it.title} (salinan)`.slice(0, 80) }; x.queue.push(c); return done({ ok: true, id: c.id }); }
     if (act === 'priority') { const i = x.queue.indexOf(it), j = b.dir === 'up' ? i - 1 : i + 1; if (j < 0 || j >= x.queue.length) return err('Tidak bisa dipindah.'); [x.queue[i], x.queue[j]] = [x.queue[j], x.queue[i]]; return done({ ok: true }); }

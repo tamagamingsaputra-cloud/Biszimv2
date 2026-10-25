@@ -21,8 +21,7 @@ assert.equal((await call('content', { platform: 'youtube', type: 'long', topic: 
 // produksi: progres dari state & biaya terpotong
 r = await call('content', { platform: 'youtube', type: 'long', topic: 'gaming', quality: 'medium', title: 'Video Pertama', start: true }); assert.equal(r.status, 200);
 const it = s.v731.creator.queue[0]; assert.equal(it.status, 'queued'); const cash0 = s.cash; assert.equal(it.progress, 0, 'konten baru harus menunggu hari simulasi berikutnya'); assert.equal(it.spent, 0, 'biaya belum dipotong sebelum hari produksi berjalan');
-tick(1); assert.equal(it.status, 'queued', 'hari simulasi pertama setelah start menjadi jeda penuh'); assert.equal(it.progress, 0, 'progress tetap 0 selama hari jeda'); assert.equal(it.spent, 0, 'biaya tidak dipotong selama hari jeda'); assert.equal(s.cash, cash0, 'saldo tidak berubah pada hari jeda');
-tick(1); assert.ok(it.progress > 0 && it.progress < 100, 'progress mulai pada hari simulasi setelah jeda dilewati'); assert.ok(s.cash < cash0, 'biaya produksi baru dipotong ketika progress benar-benar berjalan');
+tick(1); assert.ok(it.progress > 0 && it.progress < 100, 'progres harus mulai setelah satu hari simulasi dilewati'); assert.ok(s.cash < cash0, 'biaya produksi dipotong dari kas setelah hari berganti');
 assert.equal((await call('content/publish', { id: it.id })).status, 400, 'belum siap tidak boleh publish');
 const observedStages = new Set(); for (let i = 0; i < 10; i++) { tick(1); observedStages.add(it.status); } assert.ok(observedStages.has('editing'), 'tahap editing harus muncul dari progres simulasi'); assert.ok(observedStages.has('uploading'), 'tahap upload harus muncul sebelum siap'); assert.equal(it.status, 'ready'); assert.ok(Math.abs(it.spent - it.budget) < 2, 'total biaya = anggaran');
 // publish & analytics

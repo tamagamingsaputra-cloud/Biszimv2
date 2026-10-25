@@ -21,9 +21,9 @@ const App = { state: { state: s }, user: { name: 'Tamz' }, view: 'creator', mone
 const ctx = vm.createContext({ App, setInterval: () => 1, clearInterval() {}, document: { getElementById: () => null }, closeModal() {}, console });
 vm.runInContext(fs.readFileSync(new URL('../web/v730-creator2.js', import.meta.url), 'utf8'), ctx);
 App._crCat = catalog(); // katalog sudah dimuat
-for (const tab of ['overview', 'accounts', 'platform', 'planner', 'create', 'queue', 'published', 'live', 'analytics', 'money', 'sponsor', 'skills']) {
+for (const tab of ['overview', 'accounts', 'platform', 'planner', 'create', 'queue', 'published', 'live', 'analytics', 'money', 'sponsor', 'skills', 'legacy']) {
   App.crs.tab = tab; for (const pl of ['youtube', 'tiktok', 'instagram']) { App.crs.plat = pl; App.crs.form.plat = pl; App.crs.live.plat = pl; const out = App.creatorPage(); assert.ok(out.length > 100, tab); assert.ok(!out.includes('Gagal menampilkan'), `render ${tab}/${pl}: ${out.match(/Gagal menampilkan[^<]*/)}`); assert.ok(!out.includes('undefined') && !out.includes('NaN'), `undefined/NaN di ${tab}/${pl}`); }
 }
 // live non aktif
 await call('live/end'); App.crs.tab = 'live'; assert.ok(App.creatorPage().includes('Start Live'));
-console.log('UI SMOKE LULUS: 12 tab/area x 3 platform dirender tanpa error/NaN');
+console.log('UI SMOKE LULUS: 13 tab x 3 platform dirender tanpa error/NaN');

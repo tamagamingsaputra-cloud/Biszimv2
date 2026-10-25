@@ -33,6 +33,8 @@ async function student(s, { acc = .85, tasks = true, pay = true } = {}) {
 /* ============ 1. katalog, skenario & syarat pendaftaran ============ */
 {
   const s = mk(0); ensure750(s); const e = E(s);
+  assert.equal(e.scenario, 'sd', 'profil pendidikan baru dimulai dari SD kelas 1');
+  await call(s, 'scenario', { id: 'adult' });
   let r = await call(s, 'enroll', { instId: 'sd-negeri' }); assert.equal(r.status, 400, 'skenario dewasa tidak boleh masuk SD'); assert.match(r.o.error, /SD|jenjang/i);
   r = await call(s, 'enroll', { instId: 'univ-negeri', program: 'S1-MAN' }); assert.equal(r.status, 400); // tes masuk + dana
   r = await call(s, 'scenario', { id: 'sd' }); assert.equal(r.status, 200); assert.equal(E(s).scenario, 'sd');
