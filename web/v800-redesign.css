@@ -1,0 +1,63 @@
+/* BizSim v8.0.0 — page-specific redesign layer. Design tokens + responsive fixes. */
+:root{--bs-market-bg:#061521;--bs-market-panel:#0b2231;--bs-market-panel2:#102b3b;--bs-market-line:#1d3b4b;--bs-market-text:#e7f0f7;--bs-market-muted:#91a8b8;--bs-market-green:#20d38a;--bs-market-red:#ff5d6c;--bs-market-cyan:#43c9dc;--bs-radius:16px}
+/* Shared structural repairs: prevent clipped profile and reserve room for mobile navigation. */
+.mast,.mast-dash,.mast-person,.mast-person>div{min-width:0;max-width:100%}
+.mast{height:auto;min-height:unset;overflow:visible;align-items:center}
+.mast-person{flex-wrap:wrap;align-items:center;overflow:visible}
+.mast-person h2,.mast-person small,.mast-chip{overflow-wrap:anywhere;white-space:normal;max-width:100%}
+.mast-person .portrait{flex:0 0 auto;width:clamp(64px,18vw,104px);height:clamp(64px,18vw,104px)}
+.content{min-width:0;padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
+.mobile-nav.v720-nav{padding-bottom:env(safe-area-inset-bottom,0px);min-height:68px;max-width:100vw;box-sizing:border-box}
+.mn{min-width:0;flex:1 1 0;overflow:hidden}.mn .nav-icon,.mn svg{width:23px;height:23px;flex-shrink:0}.mn .nav-label{max-width:100%;overflow-wrap:anywhere}
+.fab{bottom:calc(94px + env(safe-area-inset-bottom,0px));right:14px;width:48px;height:48px}
+.card,.kp,.mast,.pg,.jb,.ch-card{min-width:0;overflow-wrap:anywhere}
+/* The dashboard stays light and information-led. */
+#app .mast-dash{grid-template-columns:minmax(0,1fr)}
+#app .mast-dash .mast-person{gap:12px}
+#app .mast-dash .mast-person>div{flex:1 1 160px}
+/* Trading is a dedicated dark terminal, not a recoloured generic card page. */
+#app .market-terminal,#app .tm-terminal,#app .market-page,.page-market,.view-market{background:var(--bs-market-bg);color:var(--bs-market-text);border-radius:20px;padding:clamp(12px,2vw,22px)}
+#app .market-terminal .card,#app .tm-terminal .card,#app .market-page .card,.page-market .card,.view-market .card,
+#app .market-terminal .kp,#app .tm-terminal .kp,#app .market-page .kp,.page-market .kp,.view-market .kp{background:var(--bs-market-panel);border:1px solid var(--bs-market-line);color:var(--bs-market-text);box-shadow:none;border-radius:13px}
+#app .market-terminal h1,#app .tm-terminal h1,#app .market-page h1,.page-market h1,.view-market h1,
+#app .market-terminal h2,#app .tm-terminal h2,#app .market-page h2,.page-market h2,.view-market h2{color:#f3f8fc;font-family:system-ui,sans-serif;letter-spacing:-.025em}
+#app .market-terminal small,#app .tm-terminal small,#app .market-page small,.page-market small,.view-market small{color:var(--bs-market-muted)}
+#app .market-terminal .pos,#app .tm-terminal .pos,#app .market-page .pos,.page-market .pos,.view-market .pos{color:var(--bs-market-green)}
+#app .market-terminal .neg,#app .tm-terminal .neg,#app .market-page .neg,.page-market .neg,.view-market .neg{color:var(--bs-market-red)}
+.tm-stats div{background:#0a2030;border-color:#1a3b4c}.tm-stats b{color:#e7f0f7}.tm-stats .pos{color:var(--bs-market-green)}.tm-stats .neg{color:var(--bs-market-red)}
+/* Distinct visual identities per feature. */
+#app .investments-page,#app .portfolio-page{--feature-accent:#20b879;--feature-soft:#e4f6ee}
+#app .business-page,#app .business-catalog{--feature-accent:#c36b45;--feature-soft:#fff0e7}
+#app .career-page,#app .jobs-page{--feature-accent:#8c7cf5;--feature-soft:#efedff}
+#app .education-page,#app .learning-page{--feature-accent:#2587d8;--feature-soft:#e6f3ff}
+#app .profile-page,#app .character-page{--feature-accent:#d5ad53;--feature-soft:#f9f0d8}
+#app .creator-studio,#app .creator-page{--feature-accent:#a78bfa;--feature-soft:#f1eaff}
+/* Where page roots expose the feature classes, apply matching accent to key controls. */
+.investments-page .btn.primary,.portfolio-page .btn.primary{background:#087f5b;border-color:#087f5b}
+.business-page .btn.primary,.business-catalog .btn.primary{background:#a84e2c;border-color:#a84e2c}
+.career-page .btn.primary,.jobs-page .btn.primary{background:#6555d9;border-color:#6555d9}
+.education-page .btn.primary,.learning-page .btn.primary{background:#1769aa;border-color:#1769aa}
+.creator-studio .btn.primary,.creator-page .btn.primary{background:#7651d5;border-color:#7651d5}
+/* Better readable and touch-friendly controls. */
+button,.btn,[role=button],input,select,textarea{touch-action:manipulation}
+button:focus-visible,.btn:focus-visible,[role=button]:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #43c9dc;outline-offset:2px}
+@media(max-width:780px){.mast-dash{padding:14px!important}.mast-person h2{font-size:clamp(19px,5vw,24px)}.mast-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.content{padding-left:12px;padding-right:12px}.pf-kpis{gap:8px}.tk-board{grid-template-columns:minmax(0,1fr)}.fab{z-index:45}.mobile-nav.v720-nav{z-index:60}}
+@media(max-width:390px){.content{padding-left:9px;padding-right:9px}.mast-person{align-items:flex-start}.mast-person .portrait{width:60px;height:60px}.mast-stats{gap:6px}.mast-tile{padding:8px}.mast-tile b{white-space:normal;font-size:12px}.mobile-nav.v720-nav{left:8px!important;right:8px!important;width:auto!important}.mn{padding-left:2px!important;padding-right:2px!important}.mn .nav-label{font-size:9px!important}}
+@media(min-width:781px){.content{padding-bottom:36px}.mobile-nav.v720-nav{display:none!important}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
+/* Concrete selectors for the current renderer (Asset Market cards are .market-card). */
+#app:has(.market-card) .content{background:var(--bs-market-bg);color:var(--bs-market-text);border-radius:18px;padding:14px;margin-top:10px}
+#app:has(.market-card) .page-head{position:relative;background:#071a28 url('../assets/uiux-v800/illustrations/market-terminal.svg') right center/auto 100% no-repeat;border:1px solid #1d3b4b;border-radius:18px;padding:18px;margin-bottom:14px;isolation:isolate}
+#app:has(.market-card) .page-head:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#071a28 0%,rgba(7,26,40,.96) 52%,rgba(7,26,40,.35) 100%);z-index:-1;border-radius:inherit}
+#app:has(.market-card) .page-head h1{color:#f3f8fc;font-family:system-ui,sans-serif}
+#app:has(.market-card) .page-head p{color:#a9bdca;max-width:760px}
+#app:has(.market-card) .market-card{background:#0b2231;border-color:#1d3b4b;color:#e7f0f7;box-shadow:none;border-radius:15px}
+#app:has(.market-card) .market-card .section-title,#app:has(.market-card) .market-card .market-price{color:#f3f8fc}
+#app:has(.market-card) .market-card .muted,#app:has(.market-card) .market-card .detail span{color:#91a8b8}
+#app:has(.market-card) .market-card .detail{background:#102b3b;border:1px solid #1d3b4b;border-radius:10px;padding:8px}
+#app:has(.market-card) .market-card .btn.accent{background:#20d38a;color:#041b16;border-color:#20d38a}
+#app:has(.market-card) .market-card .btn:not(.accent){background:#102b3b;color:#e7f0f7;border-color:#294859}
+#app:has(.market-card) .market-card .market-change.up{color:#20d38a;background:#0d3a30;border-radius:999px;padding:4px 8px}
+#app:has(.market-card) .market-card .market-change.down{color:#ff7a88;background:#3b202b;border-radius:999px;padding:4px 8px}
+#app:has(.market-card) .card:not(.market-card){background:#0b2231;color:#e7f0f7;border-color:#1d3b4b}
+#app:has(.market-card) .section-title{color:#e7f0f7}

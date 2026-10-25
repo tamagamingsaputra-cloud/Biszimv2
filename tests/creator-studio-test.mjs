@@ -20,10 +20,10 @@ assert.equal((await call('content', { platform: 'youtube', type: 'long', topic: 
 assert.equal((await call('content', { platform: 'youtube', type: 'long', topic: 'gaming', quality: 'medium', title: 'Tes', budget: 1 })).status, 400, 'anggaran terlalu kecil ditolak');
 // produksi: progres dari state & biaya terpotong
 r = await call('content', { platform: 'youtube', type: 'long', topic: 'gaming', quality: 'medium', title: 'Video Pertama', start: true }); assert.equal(r.status, 200);
-const it = s.v731.creator.queue[0]; assert.equal(it.status, 'queued'); const cash0 = s.cash;
-tick(1); assert.ok(it.progress > 0 && it.progress < 100, 'progres harus bertahap'); assert.ok(s.cash < cash0, 'biaya produksi dipotong dari kas');
+const it = s.v731.creator.queue[0]; assert.equal(it.status, 'queued'); const cash0 = s.cash; assert.equal(it.progress, 0, 'konten baru harus menunggu hari simulasi berikutnya'); assert.equal(it.spent, 0, 'biaya belum dipotong sebelum hari produksi berjalan');
+tick(1); assert.ok(it.progress > 0 && it.progress < 100, 'progres harus mulai setelah satu hari simulasi dilewati'); assert.ok(s.cash < cash0, 'biaya produksi dipotong dari kas setelah hari berganti');
 assert.equal((await call('content/publish', { id: it.id })).status, 400, 'belum siap tidak boleh publish');
-tick(10); assert.equal(it.status, 'ready'); assert.ok(Math.abs(it.spent - it.budget) < 2, 'total biaya = anggaran');
+const observedStages = new Set(); for (let i = 0; i < 10; i++) { tick(1); observedStages.add(it.status); } assert.ok(observedStages.has('editing'), 'tahap editing harus muncul dari progres simulasi'); assert.ok(observedStages.has('uploading'), 'tahap upload harus muncul sebelum siap'); assert.equal(it.status, 'ready'); assert.ok(Math.abs(it.spent - it.budget) < 2, 'total biaya = anggaran');
 // publish & analytics
 r = await call('content/publish', { id: it.id }); assert.equal(r.status, 200);
 const yt = s.v731.creator.accounts.youtube; assert.equal(yt.posts, 1); assert.ok(yt.views > 0 && s.v731.creator.published.length === 1);
@@ -52,6 +52,8 @@ assert.equal((await call('equipment', { item: 'camera' })).status, 200); assert.
 // persistensi: state serializable & reload-safe
 const clone = JSON.parse(JSON.stringify(s)); ensure731(clone); assert.equal(clone.v731.creator.published.length, 1);
 // cancel & duplicate
-r = await call('content', { platform: 'tiktok', type: 'video', topic: 'komedi', quality: 'low', title: 'Draft TT' }); const dr = s.v731.creator.queue.at(-1); assert.equal(dr.status, 'draft');
+r = await call('content', { platform: 'tiktok', type: 'video', topic: 'komedi', quality: 'low', title: 'Draft TT', durationSec: 30 }); const dr = s.v731.creator.queue.at(-1); assert.equal(dr.status, 'draft'); assert.equal(dr.durationSec, 30);
+const longDuration = await call('content', { platform: 'tiktok', type: 'video', topic: 'komedi', quality: 'low', title: 'Video lebih panjang', durationSec: 120 }); assert.equal(longDuration.status, 200); const longIt = s.v731.creator.queue.at(-1); assert.ok(longIt.total > dr.total, 'durasi video yang lebih panjang harus menambah waktu produksi');
+assert.equal((await call('content', { platform: 'tiktok', type: 'video', topic: 'komedi', quality: 'low', title: 'Durasi tidak valid', durationSec: 3000 })).status, 400, 'durasi video di luar batas ditolak');
 r = await call('content/duplicate', { id: dr.id }); assert.equal(r.status, 200); r = await call('content/cancel', { id: dr.id }); assert.equal(r.status, 200);
 console.log('SEMUA UJI CREATOR STUDIO LULUS', { cash: Math.round(s.cash), ytFol: Math.round(yt.fol), notes: notes.length });

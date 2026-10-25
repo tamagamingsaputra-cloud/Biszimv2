@@ -1,3 +1,7 @@
+
+## Current iteration: v8.1.0
+Creator production is day-tick gated, video-duration aware, and uses icon-led stage progress. See `PRD-BizSim-v8.1.0.md`, `BizSim-Test-Report-v8.1.0.md`, and `BizSim-Chat-Handoff-v8.1.0.md`.
+
 # BizSim v7.8.1 — AI Comparison A
 
 Incremental improvement release based on the v7.8.0 AI Comparison A package. The project is intended for side-by-side evaluation against another AI implementation. Keep this folder separate from the original baseline and Comparison B.

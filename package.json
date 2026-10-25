@@ -1,8 +1,8 @@
 {
   "name": "bizsim",
-  "version": "7.8.1",
+  "version": "8.1.0",
   "private": true,
-  "description": "BizSim AI comparison variant A \u2014 Content Creator Studio UI system and platform-specific career simulation",
+  "description": "BizSim AI comparison variant A \u2014 page-specific UI redesign, bundled SVG asset pack, responsive and dark trading terminal",
   "scripts": {
     "start": "node server/server.js",
     "dev": "node server/server.js",

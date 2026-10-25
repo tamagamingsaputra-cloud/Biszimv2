@@ -30,3 +30,26 @@
 @media(max-width:820px){.content:has(.cs-root) .page-head{padding:18px!important;border-radius:14px!important}.content:has(.cs-root) .cs-tabs{margin-inline:-2px}.content:has(.cs-root) .cs-tab{padding:9px 10px}.content:has(.cs-root) .cs-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.content:has(.cs-root) .cs-kpi{padding:12px}.content:has(.cs-root) .cs-live-note{align-items:flex-start;flex-wrap:wrap}}
 @media(max-width:420px){.content:has(.cs-root) .cs-kpis{grid-template-columns:minmax(0,1fr)}.content:has(.cs-root) .cs-kpi b{font-size:19px}.content:has(.cs-root) .cs-tab{font-size:10px;padding:8px 9px}}
 @supports not selector(:has(*)){.cs-root .cs-tab.on{background:#7157d9;border-color:#7157d9;color:#fff}}
+
+/* v8.1.0 — compact, state-driven production timeline */
+.content:has(.cs-root) .cs-production-item{padding:12px 0 14px;min-width:0}
+.content:has(.cs-root) .cs-production-stage{display:flex;align-items:center;gap:10px;margin:8px 0 10px;min-width:0}
+.content:has(.cs-root) .cs-stage-icon{width:34px;height:34px;flex:0 0 34px;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;color:var(--stage-color,#64748b);background:color-mix(in srgb,var(--stage-color,#64748b) 11%,white);border:1px solid color-mix(in srgb,var(--stage-color,#64748b) 22%,white)}
+.content:has(.cs-root) .cs-production-stage-copy{display:flex;flex:1;min-width:0;flex-direction:column;gap:2px}
+.content:has(.cs-root) .cs-production-stage-copy b{font-size:13px;color:var(--cs-ink)}
+.content:has(.cs-root) .cs-production-stage-copy small{font-size:11px;line-height:1.35;color:var(--cs-muted);overflow-wrap:anywhere}
+.content:has(.cs-root) .cs-production-stage>b{font-size:16px;font-variant-numeric:tabular-nums;color:var(--stage-color,#64748b)}
+.content:has(.cs-root) .cs-stage-track{display:flex;gap:4px;align-items:stretch;overflow-x:auto;padding:2px 0 8px;scrollbar-width:thin}
+.content:has(.cs-root) .cs-stage-step{display:flex;flex:1 0 62px;min-width:0;align-items:center;flex-direction:column;gap:4px;padding:7px 3px;border:1px solid #e8eaf0;border-radius:8px;color:#8a94a5;background:#f7f8fa}
+.content:has(.cs-root) .cs-stage-step small{font-size:9px;line-height:1.1;text-align:center;white-space:nowrap}
+.content:has(.cs-root) .cs-stage-step.is-done{color:#16856f;background:#eaf7f2;border-color:#c8eadd}
+.content:has(.cs-root) .cs-stage-step.is-current{color:var(--stage-color,#3b82f6);background:color-mix(in srgb,var(--stage-color,#3b82f6) 9%,white);border-color:color-mix(in srgb,var(--stage-color,#3b82f6) 38%,white);font-weight:700}
+.content:has(.cs-root) .cs-stage-step.is-editing{color:#dc3545}
+.content:has(.cs-root) .cs-stage-step.is-uploading{color:#0d9488}
+.content:has(.cs-root) .cs-stage-progress{height:9px;margin:0 0 8px;background:#e9edf2}
+.content:has(.cs-root) .cs-stage-progress i{background:var(--stage-color,#7157d9);background-image:none;transition:width .25s ease}
+.content:has(.cs-root) .cs-stage-progress.is-editing i{background:#dc3545}
+.content:has(.cs-root) .cs-stage-progress.is-uploading i{background:#0d9488}
+.content:has(.cs-root) .cs-stage-progress.bad i{background:#b91c1c}
+.content:has(.cs-root) .cs-queue-note{padding:9px 11px;margin-bottom:10px;border-left:3px solid #64748b;background:#f4f6f9;border-radius:0 8px 8px 0;line-height:1.45}
+@media(max-width:480px){.content:has(.cs-root) .cs-production-item{padding:10px 0}.content:has(.cs-root) .cs-stage-icon{width:30px;height:30px;flex-basis:30px}.content:has(.cs-root) .cs-stage-step{flex-basis:54px;padding:6px 2px}.content:has(.cs-root) .cs-stage-step small{font-size:8px}.content:has(.cs-root) .cs-q-meta{font-size:10px}}
