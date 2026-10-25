@@ -421,8 +421,4 @@ app.get('/api/edu/sample', (req, res) => {
 
 app.use(express.static(path.join(__dirname, '..', 'public'), { extensions: ['html'] }));
 const PORT = Number(process.env.PORT) || 8000;
-// Export the same Express app for Vercel serverless routing; only bind a port in local/Termux mode.
-if (require.main === module) {
-  app.listen(PORT, '0.0.0.0', () => console.log('BizSim server on :' + PORT));
-}
-module.exports = app;
+app.listen(PORT, '0.0.0.0', () => console.log('BizSim server on :' + PORT));

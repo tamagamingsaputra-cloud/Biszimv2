@@ -1,16 +1,19 @@
-# QA Report — BizSim v7.1.1 Hotfix Koneksi
+# QA Report — BizSim v7.1
 
-## Berhasil
-- `node tests/ui-redesign.test.mjs` — lulus.
-- `node tests/calendar.test.mjs` — 23 pengujian lulus.
-- `node tests/needs.test.mjs` — 13 pengujian lulus.
-- `node tests/deployment-config.test.mjs` — lulus: API publik menggunakan same-origin dan adapter Vercel terdaftar.
-- `node --check server/server.cjs` dan `node --check api/[...path].js` — lulus.
+## Pemeriksaan yang dijalankan
+- `node tests/ui-redesign.test.mjs`: pemeriksaan statis UI/sistem.
+- `node tests/calendar.test.mjs`: 23 pengujian kalender dan simulation clock.
+- `node tests/needs.test.mjs`: 13 pengujian kebutuhan karakter.
+- `node --check` pada semua file `.js`/`.mjs`/`.cjs`.
+- Pemeriksaan keberadaan enam avatar SVG, perubahan API avatar, hilangnya toggle bypass usia, tema halaman, dan ikon tahap produksi.
+- `node tests/finance.test.mjs` tidak dapat dijalankan pada sesi ini karena dependency `express` tidak terpasang; percobaan `npm ci` timeout. Jangan menganggap finance API teruji ulang pada paket ini.
 
-## Belum diverifikasi
-- `npm ci` di lingkungan kerja timeout; runtime dependency dan API server belum dapat diuji end-to-end di sini.
-- Belum melakukan deployment Vercel aktual atau uji browser pada URL publik.
-- **Penyimpanan:** adapter serverless memakai SQLite di `/tmp`; Vercel dapat membuang data tersebut saat instance berganti. Progres permanen membutuhkan database persisten eksternal. Jangan anggap ini konfigurasi produksi final sebelum database persisten dipasang.
+## Hasil
+- Tes UI statis, kalender, kebutuhan, dan syntax-check: lulus.
+- Tes finance server: belum dapat dijalankan di lingkungan ini.
+- Tes browser visual/Android: belum dijalankan.
 
-## Perbaikan insiden
-API client tidak lagi mengarahkan pengunjung Vercel ke localhost milik perangkat pengunjung. Ditambahkan catch-all API function dan konfigurasi root dependency agar deployment memiliki rute `/api/*`.
+## Risiko yang masih terbuka
+- Perlu validasi manual visual pada Android kecil dan desktop, khususnya modal, tabel panjang, serta Creator Studio.
+- Perlu uji integrasi server dengan `npm ci` dan `node tests/finance.test.mjs` setelah dependency tersedia.
+- Karena ekonomi masih client-simulated pada prototype, server profile/avatar persistence tidak berarti semua ekonomi telah server-authoritative.
