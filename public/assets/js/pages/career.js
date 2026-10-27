@@ -1,6 +1,7 @@
 import * as E from '../engine/core.js';
 import { fmtDay } from '../engine/calendar.js';
 import { TIME_RULES } from '../data/time-rules.js';
+import { availableJobs } from '../engine/job-market.js';
 import { mountShell } from '../ui/shell.js';
 import { rp, rpShort, pct, delta, cls, icon, empty, lineChart, esc, $, $$, toast, fmtDate, num, openDialog, skillLabel } from '../ui/ui.js';
 
@@ -16,7 +17,7 @@ page.innerHTML = `<div class="page-head"><div><p>Jalur perkembangan karakter: mu
 
 function tabs() {
   const c = E.S.career, act = c.applications.filter(a => ACTIVE.includes(a.status)).length;
-  $('#tabs').innerHTML = [['jobs', 'Lowongan', E.JOB_CATALOG.length], ['applications', 'Status lamaran', act], ['active', 'Pekerjaan aktif', c.job ? 1 : 0], ['skills', 'Skill & pengalaman', null], ['youtube', 'Kreator · side income', null]]
+  $('#tabs').innerHTML = [['jobs', 'Pasar kerja', null], ['internships', 'Magang', E.JOB_CATALOG.filter(j => j.internship).length], ['applications', 'Status lamaran', act], ['active', 'Pekerjaan & payroll', c.job ? 1 : 0], ['skills', 'Skill & pengalaman', null], ['youtube', 'Kreator · side income', null]]
     .map(([k, l, n]) => `<button class="tab" role="tab" aria-selected="${tab === k}" data-tab="${k}">${l}${n ? `<span class="count">${n}</span>` : ''}</button>`).join('');
 }
 $('#tabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) { tab = b.dataset.tab; history.replaceState(null, '', '#' + tab); render(); } });
@@ -32,8 +33,13 @@ function chanceCell(j) {
   const e = E.acceptanceEstimate(j); return `<span class="chip ${e.band === 'Tinggi' ? 'pos' : e.band === 'Sedang' ? 'warn' : 'neg'}">${e.band}</span> <span class="subtle num">est. ${Math.round(e.lo * 100)}–${Math.round(e.hi * 100)}%</span>`;
 }
 
+function marketJobs() {
+  const c = E.S.career;
+  return availableJobs({ day: E.dayNow(), seed: E.S.player?.seed || E.S.player?.name || 'bizsim',
+    activeJobId: c.job?.jobId, activeApplicationIds: c.applications.filter(a => ACTIVE.includes(a.status)).map(a => a.jobId) });
+}
 function jobsView() {
-  let list = E.JOB_CATALOG;
+  let list = marketJobs().filter(j => !j.internship);
   if (jf.type !== 'all') list = list.filter(j => j.type === jf.type);
   if (jf.eligible) list = list.filter(j => !E.jobRequirements(j).length);
   const c = E.S.career, noIncome = !c.job && E.S.player.balance < 100_000;
@@ -43,6 +49,11 @@ function jobsView() {
   <section class="panel">${list.length ? `<ul class="list show-m">${list.map(j => `<li class="clickable" data-job="${j.id}" style="flex-direction:column;align-items:stretch;gap:6px;cursor:pointer"><div class="row between" style="align-items:flex-start"><div><b>${esc(j.title)}</b><div class="subtle">${esc(j.company)} · ${j.industry}</div></div><div style="text-align:right;white-space:nowrap"><b>${payTxt(j)}</b><div class="subtle">${TYPE[j.type]}</div></div></div><div class="subtle" style="font-size:12px">${j.education} · Skill: ${skillsTxt(j)} · Pengalaman: ${expTxt(j)} · ${j.type === 'gig' ? j.shiftHours + ' j/shift' : j.hoursPerWeek + ' j/minggu'} · Persaingan ${j.competition}</div><div>${chanceCell(j)}</div></li>`).join('')}</ul><div class="table-wrap hide-m"><table class="table"><thead><tr><th>Jabatan</th><th class="hide-m">Industri</th><th class="r">Gaji</th><th class="hide-m">Pendidikan</th><th class="hide-m">Skill minimum</th><th class="hide-m">Pengalaman</th><th class="r hide-m">Jam/minggu</th><th class="hide-m">Persaingan</th><th>Peluang diterima</th></tr></thead><tbody>
   ${list.map(j => `<tr class="clickable" data-job="${j.id}"><td><b>${esc(j.title)}</b><div class="subtle">${esc(j.company)} · ${TYPE[j.type]}</div></td><td class="hide-m">${j.industry}</td><td class="r" style="white-space:nowrap"><b>${payTxt(j)}</b><div class="subtle">${schedTxt(j)}</div></td><td class="hide-m">${j.education}</td><td class="hide-m" style="font-size:12px">${skillsTxt(j)}</td><td class="hide-m" style="font-size:12px">${expTxt(j)}</td><td class="r hide-m">${j.type === 'gig' ? `${j.shiftHours} j/shift` : j.hoursPerWeek}</td><td class="hide-m">${compChip(j.competition)}</td><td>${chanceCell(j)}</td></tr>`).join('')}
   </tbody></table></div>` : empty('career', 'Tidak ada lowongan yang cocok', 'Belum ada lowongan dengan filter ini yang syaratnya kamu penuhi. Tingkatkan skill di tab Skill & pengalaman.', '<button class="btn sm" data-jt="all">Tampilkan semua</button>')}</section>`;
+}
+
+function internshipsView() {
+  const list = E.JOB_CATALOG.filter(j => j.internship);
+  return `<div class="page-head"><div><p>Program magang adalah jalur pengalaman awal. Lamaran dan seleksi memakai engine karier yang sama; uang saku dan jam kerja mengikuti aturan pekerjaan paruh waktu.</p></div><span class="chip info">${list.length} program</span></div><section class="panel"><ul class="list">${list.map(j => `<li class="clickable" data-job="${j.id}" style="cursor:pointer;flex-direction:column;align-items:stretch;gap:6px"><div class="row between"><div><b>${esc(j.title)}</b><div class="subtle">${esc(j.company)} · ${esc(j.industry)}</div></div><b>${payTxt(j)}</b></div><div class="subtle">${esc(j.desc)} · ${j.hoursPerWeek} jam/minggu · Seleksi ${j.evaluation === 'interview' ? 'wawancara' : 'tes keterampilan'}</div><div>${chanceCell(j)}</div></li>`).join('')}</ul></section>`;
 }
 
 function jobDialog(id) {
@@ -150,7 +161,7 @@ function ytView() {
 
 function render() {
   tabs();
-  $('#body').innerHTML = ({ jobs: jobsView, applications: appsView, active: activeView, skills: skillsView, youtube: ytView }[tab] || jobsView)();
+  $('#body').innerHTML = ({ jobs: jobsView, internships: internshipsView, applications: appsView, active: activeView, skills: skillsView, youtube: ytView }[tab] || jobsView)();
 }
 render();
 E.on('change', () => { if (!document.querySelector('dialog[open]') && !document.activeElement?.matches('input,select')) render(); });

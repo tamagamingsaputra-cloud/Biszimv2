@@ -35,7 +35,7 @@ export const MENU = [
     ['investments', 'investments.html#emas', 'Emas', 'gold'], ['investments', 'investments.html#deposito', 'Deposito', 'lock'], ['business', 'business.html', 'Business', 'business'] ] },
   { title: 'Karier & Pendidikan', items: [
     ['education', 'education.html#overview', 'Education', 'education'], ['education', 'education.html#exam', 'Ruang Ujian', 'exam'], ['career', 'career.html#jobs', 'Lowongan', 'career'],
-    ['career', 'career.html#active', 'Pekerjaan Aktif', 'task'], ['studio', 'studio.html', 'Creator Studio', 'studio'], ['studio', 'studio.html#live', 'Live Studio', 'broadcast'] ] },
+    ['career', 'career.html#active', 'Pekerjaan & Payroll', 'task'], ['career', 'career.html#internships', 'Program Magang', 'briefcase-business'], ['life', 'life.html#belanja', 'Toko & Inventaris', 'cart'], ['studio', 'studio.html', 'Creator Studio', 'studio'], ['studio', 'studio.html#live', 'Live Studio', 'broadcast'] ] },
 ];
 const AGE_PAGE = { market: 'trading', investments: 'invest', business: 'business', career: 'gig' };
 

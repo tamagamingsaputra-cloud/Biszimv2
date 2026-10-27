@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import { availableJobs } from '../public/assets/js/engine/job-market.js';
+import { JOB_CATALOG } from '../public/assets/js/data/job-catalog.js';
+const a = availableJobs({ day: 0, seed: 'qa-seed' }).map(j => j.id);
+const b = availableJobs({ day: 0, seed: 'qa-seed' }).map(j => j.id);
+assert.deepEqual(a, b, 'seed dan minggu sama harus menghasilkan lowongan identik');
+assert.ok(availableJobs({ day: 0, seed: 'qa-seed' }).some(j => j.id === 'gig-angkut'), 'kerja lepas pemula selalu tersedia');
+assert.ok(availableJobs({ day: 0, seed: 'qa-seed' }).some(j => j.internship), 'program magang selalu terdaftar');
+const pinned = availableJobs({ day: 0, seed: 'qa-seed', activeJobId: 'ft-mktmgr', activeApplicationIds: ['ft-jrdev'] }).map(j => j.id);
+assert.ok(pinned.includes('ft-mktmgr'), 'pekerjaan aktif tidak boleh hilang karena rotasi');
+assert.ok(pinned.includes('ft-jrdev'), 'lamaran aktif tidak boleh hilang karena rotasi');
+assert.equal(JOB_CATALOG.filter(j => j.internship).length, 2, 'dua jalur magang didefinisikan');
+assert.ok(JOB_CATALOG.filter(j => j.internship).every(j => j.type === 'part' && j.evaluation), 'magang memakai pipeline lamaran dan evaluasi yang ada');
+console.log('7 pemeriksaan pasar kerja/magang lulus');

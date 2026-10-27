@@ -1,7 +1,6 @@
 /* BizSim — Master UI design system
    Visual direction (dari layout asli): Navy #0E2A47, White #FFFFFF, Blue-Gray #DDE5EC,
    Financial Green #2ECC71, Financial Red #E74C3C. Border tipis, radius kecil, data padat. */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap');
 
 :root {
   --navy: #0E2A47; --navy-2: #163A5F; --navy-3: #21507F;

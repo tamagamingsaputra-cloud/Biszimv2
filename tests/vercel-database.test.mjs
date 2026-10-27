@@ -1,0 +1,14 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const root = new URL('../', import.meta.url);
+const server = fs.readFileSync(new URL('server/server.cjs', root), 'utf8');
+const pkg = JSON.parse(fs.readFileSync(new URL('package.json', root), 'utf8'));
+const vercel = JSON.parse(fs.readFileSync(new URL('vercel.json', root), 'utf8'));
+assert.ok(pkg.dependencies.libsql, 'libsql driver must be installed');
+assert.match(server, /process\.env\.TURSO_DATABASE_URL/);
+assert.match(server, /process\.env\.TURSO_AUTH_TOKEN/);
+assert.match(server, /new Database\(TURSO_URL, \{ authToken: TURSO_TOKEN \}\)/);
+assert.match(server, /if \(isVercel && !hasRemoteDb\)/, 'Vercel must fail fast without persistent DB credentials');
+assert.match(server, /persistence: persistent \? 'managed-remote-database' : 'local-file-only'/);
+assert.equal(vercel.installCommand, 'npm install --package-lock=false');
+console.log('PASS: Vercel requires managed Turso/libSQL; no ephemeral SQLite fallback; remote health check is present.');

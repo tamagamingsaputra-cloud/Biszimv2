@@ -54,6 +54,14 @@ export const JOB_CATALOG = [
   { id: 'ft-mktmgr', title: 'Marketing Manager', company: 'PT Rasa Nusantara (fiktif)', industry: 'Pemasaran', type: 'full',
     pay: 14_000_000, hoursPerWeek: 45, education: 'S1', skills: { penjualan: 40, manajemen: 35, kreativitas: 25 }, expDays: 360, competition: 'Tinggi', evaluation: 'interview',
     gain: { manajemen: 0.3, penjualan: 0.2 }, desc: 'Posisi senior. Butuh pengalaman kerja ≥ 1 tahun simulasi.' },
+
+  // Magang memakai alur lamaran, seleksi, dan payroll paruh waktu yang sudah ada.
+  { id: 'intern-retail', title: 'Magang Operasional Ritel', company: 'Pasar Minulyo (program magang)', industry: 'Ritel', type: 'part', internship: true,
+    pay: 45_000, hoursPerWeek: 20, shiftHours: 4, education: 'SMA/SMK', skills: { komunikasi: 3 }, expDays: 0, competition: 'Sedang', evaluation: 'interview',
+    gain: { komunikasi: 0.3, penjualan: 0.2 }, desc: 'Program magang ritel dengan uang saku per shift. Pengalaman menambah kesiapan kerja.' },
+  { id: 'intern-tech', title: 'Magang Dukungan Teknologi', company: 'Startup Lokal (program magang)', industry: 'Teknologi', type: 'part', internship: true,
+    pay: 60_000, hoursPerWeek: 20, shiftHours: 4, education: 'SMA/SMK', skills: { teknologi: 5 }, expDays: 0, competition: 'Tinggi', evaluation: 'skilltest',
+    gain: { teknologi: 0.35, komunikasi: 0.1 }, desc: 'Magang dukungan teknis. Seleksi berupa tes dasar dan uang saku per shift.' },
 ];
 
 // Pertanyaan evaluasi sederhana (dipakai untuk interview / skill test).

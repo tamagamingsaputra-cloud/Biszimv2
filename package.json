@@ -1,6 +1,6 @@
 {
   "name": "bizsim-v7-1",
-  "version": "7.1.0",
+  "version": "7.1.2",
   "private": true,
   "description": "BizSim life, education, finance and business simulation",
   "engines": {
@@ -8,13 +8,16 @@
   },
   "dependencies": {
     "better-sqlite3": "^12.11.1",
-    "express": "^5.3.0"
+    "express": "^5.3.0",
+    "libsql": "^0.5.29"
   },
   "scripts": {
     "start": "node server/server.cjs",
     "test:calendar": "node tests/calendar.test.mjs",
     "test:needs": "node tests/needs.test.mjs",
     "test:finance": "node tests/finance.test.mjs",
-    "test:deployment-config": "node tests/deployment-config.test.mjs"
+    "test:deployment-config": "node tests/deployment-config.test.mjs",
+    "test:career-market": "node tests/career-market.test.mjs",
+    "test:vercel-db": "node tests/vercel-database.test.mjs"
   }
 }

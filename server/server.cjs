@@ -3,13 +3,26 @@
 const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
-const Database = require('better-sqlite3');
 const C = require('./catalog.cjs');
 const CAL = require('./calendar.cjs');
 
-const DB_PATH = process.env.BIZSIM_DB || (process.env.VERCEL ? path.join('/tmp', 'bizsim.db') : path.join(__dirname, 'bizsim.db'));
-const db = new Database(DB_PATH);
-db.pragma('journal_mode = WAL');
+// Vercel Functions memiliki filesystem sementara. Di Vercel, wajib memakai database
+// Turso/libSQL terkelola; jangan pernah diam-diam jatuh kembali ke /tmp.
+const TURSO_URL = String(process.env.TURSO_DATABASE_URL || process.env.LIBSQL_URL || '').trim();
+const TURSO_TOKEN = String(process.env.TURSO_AUTH_TOKEN || process.env.LIBSQL_AUTH_TOKEN || '').trim();
+const isVercel = String(process.env.VERCEL || '') === '1' || !!process.env.VERCEL;
+const hasRemoteDb = !!(TURSO_URL && TURSO_TOKEN);
+if (isVercel && !hasRemoteDb) {
+  throw new Error('BizSim membutuhkan TURSO_DATABASE_URL dan TURSO_AUTH_TOKEN di Vercel. SQLite lokal /tmp tidak persisten; deployment dihentikan agar progres pemain tidak hilang.');
+}
+if (hasRemoteDb && !/^(libsql|https?):\/\//i.test(TURSO_URL)) {
+  throw new Error('TURSO_DATABASE_URL harus berupa URL libsql:// atau https:// yang valid.');
+}
+const DB_PATH = process.env.BIZSIM_DB || path.join(__dirname, 'bizsim.db');
+const Database = hasRemoteDb ? require('libsql') : require('better-sqlite3');
+const db = hasRemoteDb ? new Database(TURSO_URL, { authToken: TURSO_TOKEN }) : new Database(DB_PATH);
+if (!hasRemoteDb && typeof db.pragma === 'function') db.pragma('journal_mode = WAL');
+const DATABASE_MODE = hasRemoteDb ? 'turso-remote' : 'local-file';
 db.exec(`
 CREATE TABLE IF NOT EXISTS players (visitor TEXT PRIMARY KEY, char_id TEXT, profile TEXT, edu TEXT, game TEXT, updated_at INTEGER);
 CREATE TABLE IF NOT EXISTS exam_sessions (id TEXT PRIMARY KEY, visitor TEXT, char_id TEXT, kind TEXT, ref TEXT, seed TEXT, questions TEXT, started_at INTEGER, expires_at INTEGER, submitted INTEGER DEFAULT 0);
@@ -236,7 +249,21 @@ function view(p) {
   return { ok: true, charId: p.charId, profile: p.profile, edu: { ...e, institution: i, subjects: subs, labelTerm: e.status === 'enrolled' ? labelTerm(e) : null, outstanding: outstanding(e), windows: { mid: MID, final: FIN, remedial: REMEDIAL, report: REPORT_DAY, tasks: TASK_DAYS, taskDue: TASK_DUE, modules: MODULE_WINDOWS } }, rules: { ...R, lifePerDay: LIFE_PER_DAY, start: START }, age: ageAt(p.profile, Math.max(0, e.lastDay)), lifeDate: lifeDateOf(Math.max(0, e.lastDay)).toISOString().slice(0, 10), family: FAMILY, records, results, payments, serverTime: now() };
 }
 
-app.get('/api/health', (req, res) => res.json({ ok: true, db: path.basename(DB_PATH) }));
+app.get('/api/health', (req, res) => {
+  try {
+    const check = db.prepare('SELECT 1 AS ok').get();
+    const persistent = DATABASE_MODE === 'turso-remote';
+    res.status(check && check.ok === 1 ? 200 : 503).json({
+      ok: !!(check && check.ok === 1),
+      db: persistent ? 'Turso/libSQL' : path.basename(DB_PATH),
+      persistence: persistent ? 'managed-remote-database' : 'local-file-only',
+      configured: persistent,
+      warning: persistent ? null : 'Database lokal tidak persisten di Vercel. Untuk deployment, atur TURSO_DATABASE_URL dan TURSO_AUTH_TOKEN.'
+    });
+  } catch (err) {
+    res.status(503).json({ ok: false, db: DATABASE_MODE, persistence: 'unavailable', error: 'Database tidak dapat dijangkau.' });
+  }
+});
 app.get('/api/state', (req, res) => {
   const p = getPlayer(vid(req)); if (!p || !p.profile) return res.json({ ok: true, profile: null, game: p?.game || null, family: FAMILY });
   res.json({ ...view(p), game: p.game });

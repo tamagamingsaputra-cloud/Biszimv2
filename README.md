@@ -98,3 +98,6 @@ Dashboard kini menjadi life hub: profil, jam lengkap, bar 8 kebutuhan tepat di b
 The static frontend is served from `public/`; `/api/*` is routed through `api/[...path].js` to the existing Express API. The API uses `/tmp/bizsim.db` when `VERCEL` is set so the SQLite file is writable inside a function. **This is only a connectivity/runtime adapter: `/tmp` is ephemeral and serverless instances may not share it, so it is not durable player storage.** Do not treat this as production persistence. For persistent player saves on Vercel, migrate the database layer to a managed persistent database before public release.
 
 The avatar picker currently saves locally in the browser and is not synced across devices. The Creator Studio QA age bypass was removed; age eligibility now uses the character's simulated age.
+
+## Database persisten untuk Vercel (v7.1.2)
+Vercel Functions tidak boleh memakai file SQLite lokal sebagai penyimpanan progres permanen. Konfigurasikan `TURSO_DATABASE_URL` dan `TURSO_AUTH_TOKEN` sebagai Environment Variables server-side di Vercel sebelum deploy. Tanpa keduanya, API sengaja gagal mulai untuk mencegah progres tersimpan pada filesystem sementara. Panduan lengkap: `docs/VERCEL-PERSISTENT-DATABASE-v7.1.2.md`.
