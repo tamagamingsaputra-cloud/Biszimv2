@@ -15,8 +15,9 @@ const fmt = n => 'Rp ' + Math.round(n).toLocaleString('id-ID');
 const STATUS = ['pending', 'berhasil', 'gagal', 'reversed'];
 
 module.exports = function mountFinance(app, H) {
-  const { db, vid, rid, now, fail, getPlayer, ageAt } = H;
-  db.exec(`
+  const { db, tx: dbTx, vid, rid, now, fail, getPlayer, ageAt } = H;
+  // Skema dibuat lewat migrate() yang dipanggil server.cjs (malas + dapat diulang), bukan saat modul dimuat.
+  const SCHEMA = `
   CREATE TABLE IF NOT EXISTS fin_state (visitor TEXT PRIMARY KEY, pin_hash TEXT, pin_salt TEXT, pin_fails INTEGER DEFAULT 0, pin_locked_until INTEGER DEFAULT 0, score INTEGER, last_day INTEGER, autodebit TEXT);
   CREATE TABLE IF NOT EXISTS fin_accounts (id TEXT PRIMARY KEY, visitor TEXT, kind TEXT, provider TEXT, label TEXT, balance INTEGER DEFAULT 0, credit_limit INTEGER DEFAULT 0, status TEXT, opened_day INTEGER, meta TEXT);
   CREATE TABLE IF NOT EXISTS fin_cards (id TEXT PRIMARY KEY, visitor TEXT, account_id TEXT, type TEXT, form TEXT, last4 TEXT, status TEXT, created_day INTEGER);
@@ -24,8 +25,17 @@ module.exports = function mountFinance(app, H) {
   CREATE TABLE IF NOT EXISTS fin_statements (id TEXT PRIMARY KEY, visitor TEXT, account_id TEXT, stmt_day INTEGER, due_day INTEGER, amount INTEGER, min_due INTEGER, paid INTEGER DEFAULT 0, status TEXT, interest INTEGER DEFAULT 0, late_fee INTEGER DEFAULT 0);
   CREATE TABLE IF NOT EXISTS fin_orders (id TEXT PRIMARY KEY, visitor TEXT, merchant TEXT, items TEXT, total INTEGER, method TEXT, tx_id TEXT, placed_abs INTEGER, ready_abs INTEGER, eta_abs INTEGER, status TEXT, created INTEGER);
   CREATE TABLE IF NOT EXISTS fin_cash_log (visitor TEXT, seq INTEGER, delta INTEGER, cat TEXT, label TEXT, tx_id TEXT, PRIMARY KEY (visitor, seq));
-  `);
-  try { db.exec('ALTER TABLE players ADD COLUMN fin_seq INTEGER DEFAULT 0'); } catch { /* sudah ada */ }
+  `;
+  function migrate() {
+    db.exec(SCHEMA);
+    for (const ix of [
+      'CREATE INDEX IF NOT EXISTS ix_fin_accounts_v ON fin_accounts (visitor)',
+      'CREATE INDEX IF NOT EXISTS ix_fin_cards_v ON fin_cards (visitor, account_id)',
+      'CREATE INDEX IF NOT EXISTS ix_fin_tx_v ON fin_tx (visitor, day, sec)',
+      'CREATE INDEX IF NOT EXISTS ix_fin_stmt_acc ON fin_statements (account_id, status)',
+      'CREATE INDEX IF NOT EXISTS ix_fin_orders_v ON fin_orders (visitor, placed_abs)',
+    ]) { try { db.exec(ix); } catch { /* opsional */ } }
+  }
 
   const bank = id => L.BANKS.find(b => b.id === id), wallet = id => L.WALLETS.find(w => w.id === id);
   const merchant = id => L.MERCHANTS.find(m => m.id === id), item = id => L.ITEMS.find(i => i.id === id);
@@ -78,9 +88,10 @@ module.exports = function mountFinance(app, H) {
   function findIdem(v, idem) { const t = db.prepare('SELECT resp FROM fin_tx WHERE visitor=? AND idem=?').get(v, idem); return t?.resp ? JSON.parse(t.resp) : null; }
   function addTx(v, t) {
     const id = rid('tx');
-    db.prepare('INSERT INTO fin_tx (id, visitor, idem, kind, status, amount, fee, method, src, dst, merchant, label, reason, day, sec, created, reversal_of) VALUES (@id,@v,@idem,@kind,@status,@amount,@fee,@method,@src,@dst,@merchant,@label,@reason,@day,@sec,@created,@reversal_of)')
-      .run({ id, v, idem: t.idem || rid('auto'), kind: t.kind, status: t.status, amount: Math.round(t.amount), fee: Math.round(t.fee || 0), method: t.method || null, src: t.src || null, dst: t.dst || null, merchant: t.merchant || null, label: t.label, reason: t.reason || null, day: t.day, sec: t.sec ?? 0, created: now(), reversal_of: t.reversal_of || null });
     if (!STATUS.includes(t.status)) throw new Error('status transaksi tidak dikenal');
+    // Binding POSITIONAL (driver libsql/Turso tidak andal untuk @nama).
+    db.prepare('INSERT INTO fin_tx (id, visitor, idem, kind, status, amount, fee, method, src, dst, merchant, label, reason, day, sec, created, reversal_of) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+      .run(id, v, t.idem || rid('auto'), t.kind, t.status, Math.round(t.amount), Math.round(t.fee || 0), t.method || null, t.src || null, t.dst || null, t.merchant || null, t.label, t.reason || null, t.day, t.sec ?? 0, now(), t.reversal_of || null);
     return id;
   }
   const setResp = (id, resp) => db.prepare('UPDATE fin_tx SET resp=? WHERE id=?').run(JSON.stringify(resp), id);
@@ -153,35 +164,42 @@ module.exports = function mountFinance(app, H) {
   function advance(p, toDay) {
     const v = p.visitor, s = st(v); let from = s.last_day == null ? toDay : s.last_day + 1; if (toDay - from > 400) from = toDay - 400;
     let score = s.score;
-    for (let d = from; d <= toDay; d++) {
-      const all = accts(v);
-      if (dom(d) === 30) for (const a of all.filter(a => a.kind === 'bank' && a.status === 'aktif')) {
-        const fee = bank(a.provider).adminMonthly; if (!fee || a.opened_day > d - 1) continue;
-        const take = Math.min(fee, a.balance); a.balance -= take; putAcct(a);
-        addTx(v, { kind: 'biaya_admin', status: take === fee ? 'berhasil' : take > 0 ? 'berhasil' : 'gagal', amount: -take, method: 'autodebet', src: a.id, label: `Biaya admin bulanan ${bank(a.provider).short}`, reason: take < fee ? `Saldo hanya cukup ${fmt(take)} dari ${fmt(fee)}` : null, day: d, sec: SEC_DAY - 1 });
-      }
-      for (const a of all.filter(a => a.kind === 'credit' && a.status === 'aktif')) {
-        const pr = product(a.provider);
-        if (dom(d) === pr.statementDate && a.opened_day < d) {
-          const amount = Math.round(a.balance);
-          if (amount > 0) {
-            const min = Math.min(amount, Math.max(pr.minPayFloor, Math.round(amount * pr.minPayPct)));
-            db.prepare('INSERT INTO fin_statements (id, visitor, account_id, stmt_day, due_day, amount, min_due, paid, status) VALUES (?,?,?,?,?,?,?,0,?)').run(rid('st'), v, a.id, d, d + pr.graceDays, amount, min, 'terbuka');
-            if (amount / a.credit_limit > L.CREDIT_RULES.highUtilAt) score += L.CREDIT_RULES.highUtil;
-          }
+    if (from <= toDay) {
+      // Dimuat SEKALI per permintaan (bukan per hari): dengan database remote setiap query adalah satu round-trip,
+      // sehingga loop 400 hari yang memanggil accts()/query per hari bisa melewati batas waktu fungsi Vercel.
+      const all = accts(v).filter(a => a.status === 'aktif');
+      const banks = all.filter(a => a.kind === 'bank'), credits = all.filter(a => a.kind === 'credit');
+      const open = credits.length ? db.prepare("SELECT * FROM fin_statements WHERE visitor=? AND status='terbuka'").all(v) : [];
+      for (let d = from; d <= toDay; d++) {
+        if (dom(d) === 30) for (const a of banks) {
+          const fee = bank(a.provider).adminMonthly; if (!fee || a.opened_day > d - 1) continue;
+          const take = Math.max(0, Math.min(fee, a.balance)); a.balance -= take; putAcct(a);
+          addTx(v, { kind: 'biaya_admin', status: take > 0 ? 'berhasil' : 'gagal', amount: -take, method: 'autodebet', src: a.id, label: `Biaya admin bulanan ${bank(a.provider).short}`, reason: take < fee ? `Saldo hanya cukup ${fmt(take)} dari ${fmt(fee)}` : null, day: d, sec: SEC_DAY - 1 });
         }
-        for (const sm of db.prepare("SELECT * FROM fin_statements WHERE account_id=? AND status='terbuka' AND due_day=?").all(a.id, d)) {
-          const cur = acct(v, a.id);
-          if (sm.paid >= sm.amount) { db.prepare("UPDATE fin_statements SET status='lunas' WHERE id=?").run(sm.id); score += L.CREDIT_RULES.onTime; continue; }
-          const unpaid = sm.amount - sm.paid, interest = Math.round(unpaid * pr.interestMonthly);
-          if (sm.paid >= sm.min_due) {
-            cur.balance += interest; putAcct(cur); score += L.CREDIT_RULES.minOnly;
-            db.prepare("UPDATE fin_statements SET status='minimum', interest=? WHERE id=?").run(interest, sm.id);
-            addTx(v, { kind: 'bunga', status: 'berhasil', amount: -interest, method: 'kredit', src: a.id, label: `Bunga kartu kredit ${(pr.interestMonthly * 100).toLocaleString('id-ID')}% dari sisa ${fmt(unpaid)}`, day: d, sec: SEC_DAY - 1 });
-          } else {
-            cur.balance += interest + pr.lateFee; putAcct(cur); score += L.CREDIT_RULES.late;
-            db.prepare("UPDATE fin_statements SET status='telat', interest=?, late_fee=? WHERE id=?").run(interest, pr.lateFee, sm.id);
-            addTx(v, { kind: 'denda', status: 'berhasil', amount: -(interest + pr.lateFee), method: 'kredit', src: a.id, label: `Denda keterlambatan ${fmt(pr.lateFee)} + bunga ${fmt(interest)}`, reason: `Pembayaran ${fmt(sm.paid)} di bawah minimum ${fmt(sm.min_due)}`, day: d, sec: SEC_DAY - 1 });
+        for (const a of credits) {
+          const pr = product(a.provider);
+          if (dom(d) === pr.statementDate && a.opened_day < d) {
+            const amount = Math.round(a.balance);
+            if (amount > 0) {
+              const min = Math.min(amount, Math.max(pr.minPayFloor, Math.round(amount * pr.minPayPct)));
+              const row = { id: rid('st'), visitor: v, account_id: a.id, stmt_day: d, due_day: d + pr.graceDays, amount, min_due: min, paid: 0, status: 'terbuka', interest: 0, late_fee: 0 };
+              db.prepare('INSERT INTO fin_statements (id, visitor, account_id, stmt_day, due_day, amount, min_due, paid, status) VALUES (?,?,?,?,?,?,?,0,?)').run(row.id, v, a.id, d, row.due_day, amount, min, 'terbuka');
+              open.push(row);
+              if (amount / a.credit_limit > L.CREDIT_RULES.highUtilAt) score += L.CREDIT_RULES.highUtil;
+            }
+          }
+          for (const sm of open.filter(x => x.account_id === a.id && x.status === 'terbuka' && x.due_day === d)) {
+            if (sm.paid >= sm.amount) { sm.status = 'lunas'; db.prepare("UPDATE fin_statements SET status='lunas' WHERE id=?").run(sm.id); score += L.CREDIT_RULES.onTime; continue; }
+            const unpaid = sm.amount - sm.paid, interest = Math.round(unpaid * pr.interestMonthly);
+            if (sm.paid >= sm.min_due) {
+              a.balance += interest; putAcct(a); score += L.CREDIT_RULES.minOnly; sm.status = 'minimum';
+              db.prepare("UPDATE fin_statements SET status='minimum', interest=? WHERE id=?").run(interest, sm.id);
+              addTx(v, { kind: 'bunga', status: 'berhasil', amount: -interest, method: 'kredit', src: a.id, label: `Bunga kartu kredit ${(pr.interestMonthly * 100).toLocaleString('id-ID')}% dari sisa ${fmt(unpaid)}`, day: d, sec: SEC_DAY - 1 });
+            } else {
+              a.balance += interest + pr.lateFee; putAcct(a); score += L.CREDIT_RULES.late; sm.status = 'telat';
+              db.prepare("UPDATE fin_statements SET status='telat', interest=?, late_fee=? WHERE id=?").run(interest, pr.lateFee, sm.id);
+              addTx(v, { kind: 'denda', status: 'berhasil', amount: -(interest + pr.lateFee), method: 'kredit', src: a.id, label: `Denda keterlambatan ${fmt(pr.lateFee)} + bunga ${fmt(interest)}`, reason: `Pembayaran ${fmt(sm.paid)} di bawah minimum ${fmt(sm.min_due)}`, day: d, sec: SEC_DAY - 1 });
+            }
           }
         }
       }
@@ -240,7 +258,7 @@ module.exports = function mountFinance(app, H) {
       const init = Math.floor(Number(b.initial) || 0); if (init < bk.minOpen) return fail(res, `Setoran awal minimal ${fmt(bk.minOpen)}.`);
       if (cashOf(p) < init) return fail(res, `Uang tunai tidak cukup untuk setoran awal (${fmt(cashOf(p))}).`);
       let out;
-      db.transaction(() => {
+      dbTx(() => {
         const id = rid('acc'); db.prepare('INSERT INTO fin_accounts (id, visitor, kind, provider, label, balance, credit_limit, status, opened_day, meta) VALUES (?,?,?,?,?,?,0,?,?,?)').run(id, v, 'bank', bk.id, bk.name, init, 'aktif', clk.day, '{}');
         const last4 = String(1000 + Math.floor(Math.random() * 9000));
         db.prepare('INSERT INTO fin_cards (id, visitor, account_id, type, form, last4, status, created_day) VALUES (?,?,?,?,?,?,?,?)').run(rid('cd'), v, id, 'debit', bk.card, last4, 'aktif', clk.day);
@@ -255,7 +273,7 @@ module.exports = function mountFinance(app, H) {
       if (age < 13) return fail(res, `Dompet digital mensyaratkan usia minimal 13 tahun simulasi (sekarang ${age}).`);
       if (all.some(a => a.kind === 'wallet' && a.provider === w.id)) return fail(res, `${w.name} sudah aktif.`);
       let out;
-      db.transaction(() => {
+      dbTx(() => {
         const id = rid('acc'); db.prepare('INSERT INTO fin_accounts (id, visitor, kind, provider, label, balance, credit_limit, status, opened_day, meta) VALUES (?,?,?,?,?,0,0,?,?,?)').run(id, v, 'wallet', w.id, w.name, 'aktif', clk.day, JSON.stringify({ verified: false }));
         const tx = addTx(v, { idem: b.idem, kind: 'aktivasi', status: 'berhasil', amount: 0, method: '-', dst: id, label: `Aktivasi ${w.name} (akun basic)`, day: clk.day, sec: clk.sec });
         out = { ...view(p), msg: `${w.name} aktif sebagai akun basic (saldo maks. ${fmt(w.basicMax)}).`, cashAdj: [] }; setResp(tx, out);
@@ -298,7 +316,7 @@ module.exports = function mountFinance(app, H) {
     const s = st(v), score = s.score ?? L.CREDIT_RULES.scoreStart; if (score < pr.minScore) return fail(res, `Skor kredit ${score} di bawah syarat ${pr.minScore}.`);
     const limit = Math.round(Math.min(pr.maxLimit, Math.max(pr.minLimit, income * pr.limitMult)) / 500_000) * 500_000;
     const id = rid('acc'), last4 = String(1000 + Math.floor(Math.random() * 9000));
-    db.transaction(() => {
+    dbTx(() => {
       db.prepare('INSERT INTO fin_accounts (id, visitor, kind, provider, label, balance, credit_limit, status, opened_day, meta) VALUES (?,?,?,?,?,0,?,?,?,?)').run(id, v, 'credit', pr.id, pr.name, limit, 'aktif', clk.day, '{}');
       db.prepare('INSERT INTO fin_cards (id, visitor, account_id, type, form, last4, status, created_day) VALUES (?,?,?,?,?,?,?,?)').run(rid('cd'), v, id, 'credit', 'fisik', last4, 'aktif', clk.day);
       db.prepare('UPDATE fin_state SET score=? WHERE visitor=?').run(score, v);
@@ -322,7 +340,7 @@ module.exports = function mountFinance(app, H) {
     const label = `${m.name}: ${q.lines.map(l => `${l.qty}× ${l.name}`).join(', ')}`;
     const isOrder = m.id === 'antarrasa' || m.id === 'pasarku';
     let out;
-    db.transaction(() => {
+    dbTx(() => {
       if (src.cod) {
         const tx = addTx(v, { idem: b.idem, kind: 'belanja', status: 'pending', amount: -q.total, method: 'cod', src: 'cash', merchant: m.id, label, reason: 'Dibayar tunai saat pesanan diterima', day: clk.day, sec: clk.sec });
         const order = makeOrder(v, m, q, 'cod', tx, clk, b.idem);
@@ -354,7 +372,7 @@ module.exports = function mountFinance(app, H) {
     if (o.status === 'diterima') return res.json({ ...view(p, clk.abs), duplicate: true, items: JSON.parse(o.items), msg: 'Pesanan sudah diterima.' });
     const s = orderStatus(o, clk.abs); if (s !== 'tiba') return fail(res, `Pesanan masih ${s}.`);
     let out;
-    db.transaction(() => {
+    dbTx(() => {
       const t = txRow(o.tx_id); let adj = null;
       if (o.method === 'cod') {
         if (cashOf(p) < o.total) { db.prepare("UPDATE fin_tx SET status='gagal', reason=? WHERE id=?").run(`Uang tunai kurang saat pesanan tiba (${fmt(cashOf(p))})`, t.id); db.prepare("UPDATE fin_orders SET status='gagal' WHERE id=?").run(o.id); out = { ...view(p, clk.abs), ok: false, error: `Uang tunai tidak cukup (${fmt(cashOf(p))}). Kurir membawa kembali pesanan.` }; return; }
@@ -372,7 +390,7 @@ module.exports = function mountFinance(app, H) {
     const o = db.prepare('SELECT * FROM fin_orders WHERE visitor=? AND id=?').get(v, req.body.order); if (!o) return fail(res, 'Pesanan tidak ditemukan.');
     const s = orderStatus(o, clk.abs); if (s !== 'diproses') return fail(res, `Pesanan sudah ${s} — tidak bisa dibatalkan.`);
     let out;
-    db.transaction(() => {
+    dbTx(() => {
       const t = txRow(o.tx_id); let adj = null;
       db.prepare("UPDATE fin_orders SET status='dibatalkan' WHERE id=?").run(o.id);
       if (t.status === 'pending') db.prepare("UPDATE fin_tx SET status='gagal', reason='Dibatalkan pembeli sebelum diproses' WHERE id=?").run(t.id);
@@ -428,7 +446,7 @@ module.exports = function mountFinance(app, H) {
     if (needPin) { const pe = checkPin(v, b.pin); if (pe) return fail(res, pe); }
     const total = amount + fee;
     let out;
-    db.transaction(() => {
+    dbTx(() => {
       const src = from ? { type: 'acct', acct: from } : { type: 'cash' };
       const err = debitSource(p, src, total, clk, kind);
       if (err) { const tx = addTx(v, { idem: b.idem, kind, status: 'gagal', amount: -total, fee, method: channel || 'transfer', src: b.from, dst: b.to, label, reason: err, day: clk.day, sec: clk.sec }); out = { ...view(p), ok: false, error: err, txn: txRow(tx), cashAdj: [] }; setResp(tx, out); return; }
@@ -452,7 +470,7 @@ module.exports = function mountFinance(app, H) {
     if (amount > card.balance) return fail(res, `Melebihi tagihan berjalan ${fmt(card.balance)}.`);
     const pe = checkPin(v, b.pin); if (pe) return fail(res, pe);
     let out;
-    db.transaction(() => {
+    dbTx(() => {
       if (from.balance < amount) { const tx = addTx(v, { idem: b.idem, kind: 'bayar_kartu', status: 'gagal', amount: -amount, method: 'transfer', src: from.id, dst: card.id, label: `Bayar kartu kredit dari ${bank(from.provider).short}`, reason: `Saldo ${fmt(from.balance)} tidak cukup`, day: clk.day, sec: clk.sec }); out = { ...view(p), ok: false, error: `Saldo ${bank(from.provider).short} tidak cukup.`, txn: txRow(tx) }; setResp(tx, out); return; }
       from.balance -= amount; putAcct(from); card.balance -= amount; putAcct(card);
       let left = amount;
@@ -472,12 +490,13 @@ module.exports = function mountFinance(app, H) {
     if (!a || a.kind !== 'bank' || a.status !== 'aktif') return fail(res, 'Rekening gaji tidak aktif.');
     if (amount <= 0 || amount > 100_000_000) return fail(res, 'Nominal gaji tidak valid.');
     let out;
-    db.transaction(() => { a.balance += amount; putAcct(a); const tx = addTx(v, { idem: b.idem, kind: 'gaji', status: 'berhasil', amount, method: 'transfer masuk', dst: a.id, label: String(b.label || 'Gaji').slice(0, 80), day: clk.day, sec: clk.sec }); out = { ...view(p), txn: txRow(tx), msg: `Gaji ${fmt(amount)} masuk ke ${bank(a.provider).short}.` }; setResp(tx, out); })();
+    dbTx(() => { a.balance += amount; putAcct(a); const tx = addTx(v, { idem: b.idem, kind: 'gaji', status: 'berhasil', amount, method: 'transfer masuk', dst: a.id, label: String(b.label || 'Gaji').slice(0, 80), day: clk.day, sec: clk.sec }); out = { ...view(p), txn: txRow(tx), msg: `Gaji ${fmt(amount)} masuk ke ${bank(a.provider).short}.` }; setResp(tx, out); })();
     res.json(out);
   }));
 
   // Dipanggil server.cjs: PUT /api/game ditolak bila save tidak memuat penyesuaian tunai terbaru.
   return {
+    migrate,
     checkSeq(visitor, game) {
       const row = db.prepare('SELECT fin_seq FROM players WHERE visitor=?').get(visitor) || {};
       const need = row.fin_seq || 0, have = Number(game.finSeq) || 0;

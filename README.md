@@ -17,8 +17,9 @@ BizSim/
 ├── tests/calendar.test.mjs     Regression test kalender, clock, dan agenda (node tests/calendar.test.mjs)
 ├── tests/needs.test.mjs        Uji engine kebutuhan karakter
 ├── tests/finance.test.mjs      Uji API keuangan (server pada port 8791, DB sementara)
+├── tests/server-db.test.mjs    Uji server/database: profil tersimpan & terbaca ulang, tanpa binding bernama, 503 JSON saat konfigurasi salah
 ├── server/
-│   ├── package.json            express + better-sqlite3
+│   ├── package.json            express + better-sqlite3 + libsql
 │   ├── calendar.cjs            Salinan aturan kalender + validasi jam di save
 │   ├── finance.cjs             API keuangan: rekening, kartu, dompet, checkout, transfer, tagihan (SQLite)
 │   ├── life-catalog.cjs        Konfigurasi bank, dompet, kartu kredit, merchant, item, ongkir
@@ -44,13 +45,25 @@ BizSim/
 
 ## Menjalankan
 
+Lokal (SQLite file, hanya untuk pengembangan):
+
 ```bash
-cd BizSim/server
-npm install
-node server.cjs          # http://localhost:8000
+npm install            # di root proyek
+npm start              # http://localhost:8000
+npm test               # seluruh regression test
 ```
 
-Variabel opsional: `PORT` (default 8000), `BIZSIM_DB` (default `server/bizsim.db`). Pemain diidentifikasi lewat header `X-Visitor-Id` (saat hosting) atau `?visitor=<id>` di URL saat uji lokal.
+Variabel: `PORT` (default 8000), `BIZSIM_DB` (default `server/bizsim.db`). Pemain diidentifikasi lewat header `X-Visitor-Id`; `?visitor=<id>` di URL hanya untuk uji lokal.
+
+### Deploy ke Vercel (wajib Turso/libSQL)
+
+1. Buat database di Turso, lalu ambil URL (`libsql://…`) dan token (`turso db tokens create <nama>`).
+2. Vercel → Project → Settings → Environment Variables (Production **dan** Preview): `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`. Lalu **Redeploy**.
+3. Buka `/api/health` — harus `{"ok":true,"persistence":"managed-remote-database","schema":true,…}`.
+   Bila variabel belum diatur, semua `/api/*` menjawab **503 JSON** dengan pesan yang jelas (bukan crash).
+4. Buat karakter di UI; di Turso pastikan baris `players` punya `visitor`, `char_id`, `profile`, `edu` yang tidak NULL.
+
+Catatan driver: kode memakai binding SQL **positional** (`?`). Jangan menambah binding bernama (`@x`) — driver libsql dapat menyimpan NULL tanpa error. `tests/server-db.test.mjs` menjaga hal ini.
 
 ## Alur pemain baru
 

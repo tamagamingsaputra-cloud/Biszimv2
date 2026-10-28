@@ -3,10 +3,12 @@
   "outputDirectory": "public",
   "functions": {
     "api/[...path].js": {
-      "includeFiles": "server/**"
+      "includeFiles": "server/**",
+      "maxDuration": 30
     },
     "api/index.js": {
-      "includeFiles": "server/**"
+      "includeFiles": "server/**",
+      "maxDuration": 30
     }
   },
   "headers": [

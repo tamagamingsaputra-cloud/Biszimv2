@@ -12,26 +12,59 @@ const TURSO_URL = String(process.env.TURSO_DATABASE_URL || process.env.LIBSQL_UR
 const TURSO_TOKEN = String(process.env.TURSO_AUTH_TOKEN || process.env.LIBSQL_AUTH_TOKEN || '').trim();
 const isVercel = String(process.env.VERCEL || '') === '1' || !!process.env.VERCEL;
 const hasRemoteDb = !!(TURSO_URL && TURSO_TOKEN);
+const PROD = isVercel || hasRemoteDb;
+const PORT = Number(process.env.PORT) || 8000;
+
+// Salah konfigurasi TIDAK lagi melempar error saat modul dimuat (itu membuat Vercel menampilkan
+// FUNCTION_INVOCATION_FAILED tanpa penjelasan). Server tetap hidup dan menjawab JSON 503 yang jelas.
+let CONFIG_ERROR = null;
 if (isVercel && !hasRemoteDb) {
-  throw new Error('BizSim membutuhkan TURSO_DATABASE_URL dan TURSO_AUTH_TOKEN di Vercel. SQLite lokal /tmp tidak persisten; deployment dihentikan agar progres pemain tidak hilang.');
+  CONFIG_ERROR = 'BizSim membutuhkan TURSO_DATABASE_URL dan TURSO_AUTH_TOKEN di Vercel (Project → Settings → Environment Variables, lalu Redeploy). SQLite lokal /tmp tidak persisten; permintaan dihentikan agar progres pemain tidak hilang.';
+} else if (hasRemoteDb && !/^(libsql|https?|wss?):\/\//i.test(TURSO_URL)) {
+  CONFIG_ERROR = 'TURSO_DATABASE_URL harus berupa URL libsql:// atau https:// yang valid.';
 }
-if (hasRemoteDb && !/^(libsql|https?):\/\//i.test(TURSO_URL)) {
-  throw new Error('TURSO_DATABASE_URL harus berupa URL libsql:// atau https:// yang valid.');
+if (CONFIG_ERROR) {
+  console.error('[bizsim] ' + CONFIG_ERROR);
+  const bad = express();
+  bad.use((req, res) => res.status(503).set('Cache-Control', 'no-store').json({ ok: false, code: 'db-config', configured: false, persistence: 'unavailable', error: CONFIG_ERROR }));
+  if (require.main === module) bad.listen(PORT, '0.0.0.0', () => console.log('BizSim (konfigurasi database belum benar) on :' + PORT));
+  module.exports = bad;
+  return;
 }
+
 const DB_PATH = process.env.BIZSIM_DB || path.join(__dirname, 'bizsim.db');
 const Database = hasRemoteDb ? require('libsql') : require('better-sqlite3');
 const db = hasRemoteDb ? new Database(TURSO_URL, { authToken: TURSO_TOKEN }) : new Database(DB_PATH);
 if (!hasRemoteDb && typeof db.pragma === 'function') db.pragma('journal_mode = WAL');
 const DATABASE_MODE = hasRemoteDb ? 'turso-remote' : 'local-file';
-db.exec(`
+// Transaksi: pakai db.transaction bila driver menyediakannya, kalau tidak BEGIN/COMMIT manual.
+const tx = fn => typeof db.transaction === 'function' ? db.transaction(fn)
+  : (...a) => { db.exec('BEGIN'); try { const r = fn(...a); db.exec('COMMIT'); return r; } catch (e) { try { db.exec('ROLLBACK'); } catch { /* abaikan */ } throw e; } };
+
+// Skema dibuat malas (pada permintaan pertama) dan DICOBA ULANG bila gagal, sehingga Turso yang sempat
+// tidak terjangkau saat cold start tidak membuat fungsi mati permanen. Semua statement idempoten.
+let schemaReady = false, FINANCE = null;
+function ensureSchema() {
+  if (schemaReady) return;
+  db.exec(`
 CREATE TABLE IF NOT EXISTS players (visitor TEXT PRIMARY KEY, char_id TEXT, profile TEXT, edu TEXT, game TEXT, updated_at INTEGER);
 CREATE TABLE IF NOT EXISTS exam_sessions (id TEXT PRIMARY KEY, visitor TEXT, char_id TEXT, kind TEXT, ref TEXT, seed TEXT, questions TEXT, started_at INTEGER, expires_at INTEGER, submitted INTEGER DEFAULT 0);
 CREATE TABLE IF NOT EXISTS exam_results (id TEXT PRIMARY KEY, visitor TEXT, char_id TEXT, kind TEXT, ref TEXT, term_key TEXT, subject TEXT, score REAL, passed INTEGER, correct INTEGER, total INTEGER, review TEXT, game_day INTEGER, created_at INTEGER);
 CREATE TABLE IF NOT EXISTS records (id TEXT PRIMARY KEY, visitor TEXT, char_id TEXT, payload TEXT, created_at INTEGER);
 CREATE TABLE IF NOT EXISTS edu_ledger (id INTEGER PRIMARY KEY AUTOINCREMENT, visitor TEXT, char_id TEXT, game_day INTEGER, label TEXT, amount INTEGER, source TEXT, created_at INTEGER);
 `);
-for (const col of ['clock_abs REAL', 'game_key TEXT']) { try { db.exec(`ALTER TABLE players ADD COLUMN ${col}`); } catch { /* kolom sudah ada */ } }
+  for (const col of ['clock_abs REAL', 'game_key TEXT', 'fin_seq INTEGER DEFAULT 0']) { try { db.exec(`ALTER TABLE players ADD COLUMN ${col}`); } catch { /* kolom sudah ada */ } }
+  FINANCE.migrate();
+  for (const ix of [
+    'CREATE INDEX IF NOT EXISTS ix_sessions_visitor ON exam_sessions (visitor)',
+    'CREATE INDEX IF NOT EXISTS ix_results_visitor ON exam_results (visitor, char_id, created_at)',
+    'CREATE INDEX IF NOT EXISTS ix_records_visitor ON records (visitor, char_id)',
+    'CREATE INDEX IF NOT EXISTS ix_ledger_visitor ON edu_ledger (visitor, char_id)',
+  ]) { try { db.exec(ix); } catch { /* indeks bersifat opsional */ } }
+  schemaReady = true;
+}
 
+let PKG_VERSION = '7.1.2'; try { PKG_VERSION = require('../package.json').version || PKG_VERSION; } catch { /* opsional */ }
 const R = C.RULES;
 const START = Date.UTC(2026, 0, 5); // sama dengan engine klien: hari ke-1 = Senin 5 Jan 2026
 const dateOf = d => new Date(START + d * 864e5);
@@ -43,20 +76,33 @@ const MODULE_WINDOWS = [[1, 4], [5, 10], [11, 17]]; // hari ke- di dalam periode
 const TASK_DAYS = [3, 12], TASK_DUE = 5;
 const MID = [R.midDay, R.midDay + 2], FIN = [R.finalDay, R.finalDay + 2], REMEDIAL = [21, 24], REPORT_DAY = 25;
 
-const vid = req => String(req.get('x-visitor-id') || req.get('x-dev-visitor') || 'local-dev').slice(0, 120);
+// Identitas pemain. Di produksi (Vercel/Turso) ID wajib valid — tidak ada fallback bersama 'local-dev'
+// (semua pengunjung tanpa header akan berbagi satu profil). Fallback hanya untuk server lokal.
+const VID_RE = /^[A-Za-z0-9_.:-]{6,120}$/;
+const vid = req => {
+  const raw = String(req.get('x-visitor-id') || (PROD ? '' : req.get('x-dev-visitor')) || '').trim().slice(0, 120);
+  if (PROD) return VID_RE.test(raw) ? raw : '';
+  return raw || 'local-dev';
+};
 const now = () => Date.now();
 const rid = (p = '') => p + crypto.randomBytes(6).toString('hex');
 const round = (x, n = 1) => Math.round(x * 10 ** n) / 10 ** n;
 
+const parseJson = t => { if (!t) return null; try { return JSON.parse(t); } catch { return null; } };
 function getPlayer(v) {
+  if (!v) return null;
   const r = db.prepare('SELECT * FROM players WHERE visitor=?').get(v);
   if (!r) return null;
-  return { visitor: v, charId: r.char_id, profile: r.profile ? JSON.parse(r.profile) : null, edu: r.edu ? JSON.parse(r.edu) : null, game: r.game ? JSON.parse(r.game) : null };
+  return { visitor: v, charId: r.char_id, profile: parseJson(r.profile), edu: parseJson(r.edu), game: parseJson(r.game) };
 }
+// Binding POSITIONAL (bukan @nama): driver libsql/Turso tidak andal untuk binding bernama, sehingga INSERT
+// dapat tersimpan dengan nilai NULL tanpa error dan pembacaan ulang gagal.
 function savePlayer(p) {
-  db.prepare(`INSERT INTO players (visitor,char_id,profile,edu,game,updated_at) VALUES (@v,@c,@p,@e,@g,@t)
-    ON CONFLICT(visitor) DO UPDATE SET char_id=@c, profile=@p, edu=@e, game=COALESCE(@g, game), updated_at=@t`)
-    .run({ v: p.visitor, c: p.charId, p: JSON.stringify(p.profile), e: JSON.stringify(p.edu), g: p.game === undefined ? null : JSON.stringify(p.game), t: now() });
+  if (!p.visitor) throw new Error('visitor kosong');
+  const profile = JSON.stringify(p.profile), edu = JSON.stringify(p.edu), game = p.game === undefined || p.game === null ? null : JSON.stringify(p.game), t = now();
+  db.prepare(`INSERT INTO players (visitor, char_id, profile, edu, game, updated_at) VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(visitor) DO UPDATE SET char_id=excluded.char_id, profile=excluded.profile, edu=excluded.edu, game=COALESCE(excluded.game, players.game), updated_at=excluded.updated_at`)
+    .run(p.visitor, p.charId, profile, edu, game, t);
 }
 const inst = id => C.institutions.find(i => i.id === id);
 // Kalender hidup karakter: 1 tahun ajaran (2 periode × 28 hari game = 56 hari game) = 1 tahun usia karakter.
@@ -236,14 +282,24 @@ const publicQ = qs => qs.map(({ correct, explanation, ...rest }) => rest);
 
 // ————— HTTP —————
 const app = express();
-app.use(express.json({ limit: '4mb' }));
-app.use((req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 const fail = (res, error, code = 400) => res.status(code).json({ ok: false, error });
-function need(req, res) { const p = getPlayer(vid(req)); if (!p || !p.profile) { fail(res, 'Profil karakter belum dibuat.', 404); return null; } return p; }
+app.use((req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
+app.use(express.json({ limit: '4mb' }));
+app.use((req, res, next) => { if (req.body === undefined || req.body === null || typeof req.body !== 'object') req.body = {}; next(); });
+// Skema + identitas pemain untuk semua /api/*. Skema dicoba ulang otomatis bila Turso sempat tidak terjangkau.
+const OPEN_API = new Set(['/api', '/api/health', '/api/calendar', '/api/fin/catalog']);
+app.use((req, res, next) => {
+  if (!(req.path === '/api' || req.path.startsWith('/api/'))) return next();
+  if (req.path !== '/api/health') { try { ensureSchema(); } catch (e) { console.error('[bizsim] skema database gagal:', e); return res.status(503).json({ ok: false, code: 'db-unreachable', error: 'Database tidak dapat dijangkau. Coba lagi sebentar.' }); } }
+  if (!OPEN_API.has(req.path) && !vid(req)) return fail(res, 'Identitas pengunjung tidak valid. Muat ulang halaman.', 400);
+  next();
+});
+function need(req, res) { const p = getPlayer(vid(req)); if (!p || !p.profile || !p.edu) { fail(res, 'Profil karakter belum dibuat.', 404); return null; } return p; }
 function view(p) {
+  if (!p || !p.profile || !p.edu) throw new Error('Data pemain tidak lengkap.');
   const e = p.edu, i = e.institutionId ? inst(e.institutionId) : null;
   const subs = e.status === 'enrolled' ? subjectsNow(e).map(s => ({ ...s, modules: s.modules.map((m, k) => ({ ...m, window: MODULE_WINDOWS[k], taught: e.termDay >= MODULE_WINDOWS[k][0], read: !!e.read[m.id] })), learned: learnedModules(e, s.id).map(m => m.id), current: subjectGrade(e, s) })) : [];
-  const records = db.prepare('SELECT payload FROM records WHERE visitor=? ORDER BY created_at').all(p.visitor).map(r => JSON.parse(r.payload));
+  const records = db.prepare('SELECT payload FROM records WHERE visitor=? AND char_id=? ORDER BY created_at').all(p.visitor, p.charId).map(r => parseJson(r.payload)).filter(Boolean);
   const results = db.prepare('SELECT id,kind,ref,term_key termKey,subject,score,passed,correct,total,game_day gameDay,created_at createdAt FROM exam_results WHERE visitor=? AND char_id=? ORDER BY created_at DESC LIMIT 200').all(p.visitor, p.charId);
   const payments = db.prepare('SELECT game_day gameDay,label,amount,source FROM edu_ledger WHERE visitor=? AND char_id=? ORDER BY id DESC LIMIT 60').all(p.visitor, p.charId);
   return { ok: true, charId: p.charId, profile: p.profile, edu: { ...e, institution: i, subjects: subs, labelTerm: e.status === 'enrolled' ? labelTerm(e) : null, outstanding: outstanding(e), windows: { mid: MID, final: FIN, remedial: REMEDIAL, report: REPORT_DAY, tasks: TASK_DAYS, taskDue: TASK_DUE, modules: MODULE_WINDOWS } }, rules: { ...R, lifePerDay: LIFE_PER_DAY, start: START }, age: ageAt(p.profile, Math.max(0, e.lastDay)), lifeDate: lifeDateOf(Math.max(0, e.lastDay)).toISOString().slice(0, 10), family: FAMILY, records, results, payments, serverTime: now() };
@@ -251,27 +307,34 @@ function view(p) {
 
 app.get('/api/health', (req, res) => {
   try {
+    ensureSchema();
     const check = db.prepare('SELECT 1 AS ok').get();
+    const players = db.prepare('SELECT COUNT(*) AS n FROM players').get();
     const persistent = DATABASE_MODE === 'turso-remote';
     res.status(check && check.ok === 1 ? 200 : 503).json({
       ok: !!(check && check.ok === 1),
       db: persistent ? 'Turso/libSQL' : path.basename(DB_PATH),
       persistence: persistent ? 'managed-remote-database' : 'local-file-only',
       configured: persistent,
+      schema: true,
+      players: Number(players && players.n) || 0,
+      version: PKG_VERSION,
       warning: persistent ? null : 'Database lokal tidak persisten di Vercel. Untuk deployment, atur TURSO_DATABASE_URL dan TURSO_AUTH_TOKEN.'
     });
   } catch (err) {
-    res.status(503).json({ ok: false, db: DATABASE_MODE, persistence: 'unavailable', error: 'Database tidak dapat dijangkau.' });
+    console.error('[bizsim] health gagal:', err);
+    res.status(503).json({ ok: false, db: DATABASE_MODE, persistence: 'unavailable', configured: hasRemoteDb, error: 'Database tidak dapat dijangkau.' });
   }
 });
+app.get('/api', (req, res) => res.json({ ok: true, name: 'BizSim API', version: PKG_VERSION }));
 app.get('/api/state', (req, res) => {
-  const p = getPlayer(vid(req)); if (!p || !p.profile) return res.json({ ok: true, profile: null, game: p?.game || null, family: FAMILY });
+  const p = getPlayer(vid(req)); if (!p || !p.profile || !p.edu) return res.json({ ok: true, profile: null, game: p?.game || null, family: FAMILY });
   res.json({ ...view(p), game: p.game });
 });
 app.get('/api/calendar', (req, res) => res.json({ ok: true, calendar: CAL.CALENDAR, daysPerYear: CAL.DAYS_PER_YEAR, secPerTick: CAL.SEC_PER_TICK, ticksPerDay: CAL.TICKS_PER_DAY, weekdays: CAL.WEEKDAYS }));
-const FINANCE = require('./finance.cjs')(app, { db, vid, rid, now, fail, getPlayer, ageAt });
+FINANCE = require('./finance.cjs')(app, { db, tx, vid, rid, now, fail, getPlayer, ageAt });
 app.put('/api/game', (req, res) => {
-  const p = getPlayer(vid(req)); if (!p) return fail(res, 'Profil belum dibuat.', 404);
+  const p = getPlayer(vid(req)); if (!p || !p.profile) return fail(res, 'Profil belum dibuat.', 404);
   const game = req.body && req.body.game;
   if (!game || typeof game !== 'object') return fail(res, 'Format save tidak valid.');
   // Uang tunai yang sudah diubah server keuangan (fin_seq) tidak boleh tertimpa save lama.
@@ -304,7 +367,14 @@ app.post('/api/profile', (req, res) => {
   const p = { visitor: v, charId, profile, edu, game: null };
   db.prepare('UPDATE players SET game=NULL, clock_abs=NULL, game_key=NULL WHERE visitor=?').run(v);
   FINANCE.reset(v);
-  savePlayer(p); res.json(view(getPlayer(v)));
+  savePlayer(p);
+  // Jangan pernah menjawab sukses sebelum memastikan data benar-benar bisa dibaca ulang dari database.
+  const saved = getPlayer(v);
+  if (!saved || saved.charId !== charId || !saved.profile || !saved.edu) {
+    console.error('[bizsim] profil tidak terbaca setelah disimpan (visitor=%s)', v);
+    return fail(res, 'Profil gagal disimpan di database. Coba lagi; jika berulang, periksa koneksi Turso dan /api/health.', 500);
+  }
+  res.json(view(saved));
 });
 // Ubah biodata. Latar keluarga & seed dikunci (memengaruhi ekonomi & reprodusibilitas). Tanggal lahir tetap harus memberi usia 6–7 tahun di hari ke-1.
 app.patch('/api/profile', (req, res) => {
@@ -425,11 +495,14 @@ app.post('/api/edu/submit', (req, res) => {
   const p = need(req, res); if (!p) return; const e = p.edu, b = req.body || {};
   const sess = db.prepare('SELECT * FROM exam_sessions WHERE id=? AND visitor=?').get(b.sessionId, p.visitor); if (!sess) return fail(res, 'Sesi tidak ditemukan.', 404);
   if (sess.submitted) return fail(res, 'Jawaban sudah dikirim.');
+  if (sess.char_id && sess.char_id !== p.charId) return fail(res, 'Sesi ini milik karakter sebelumnya.', 409);
   const qs = JSON.parse(sess.questions), ans = Array.isArray(b.answers) ? b.answers : [];
   const late = sess.expires_at && now() > sess.expires_at + 15_000;
   const review = qs.map((q, k) => ({ n: q.n, q: q.q, options: q.options, chosen: Number.isInteger(ans[k]) ? ans[k] : null, correct: q.correct, ok: !late && ans[k] === q.correct, explanation: q.explanation, module: q.module, difficulty: q.difficulty }));
   const correct = review.filter(r => r.ok).length, score = round(correct / qs.length * 100);
-  db.prepare('UPDATE exam_sessions SET submitted=1 WHERE id=?').run(sess.id);
+  // Penanda atomik: dua pengiriman bersamaan (double tap / dua tab) tidak boleh sama-sama dinilai.
+  const claim = db.prepare('UPDATE exam_sessions SET submitted=1 WHERE id=? AND submitted=0').run(sess.id);
+  if (!claim || !claim.changes) return fail(res, 'Jawaban sudah dikirim.');
   let termK = termKey(e), subject = null;
   if (sess.kind === 'task') { const t = e.tasks.find(x => x.id === sess.ref); if (t && t.status === 'open') { t.status = 'selesai'; t.score = score; subject = t.subject; } }
   else { const ex = e.exams[sess.ref]; subject = ex?.subject; if (ex) { ex.status = 'selesai'; ex.score = score; ex.correct = correct; ex.total = qs.length; ex.late = !!late; } }
@@ -445,7 +518,15 @@ app.get('/api/edu/sample', (req, res) => {
   res.json({ ok: true, ids: qs.map(x => x.id), questions: publicQ(qs) });
 });
 
+app.use('/api', (req, res) => fail(res, 'Endpoint tidak ditemukan.', 404));
 app.use(express.static(path.join(__dirname, '..', 'public'), { extensions: ['html'] }));
-const PORT = Number(process.env.PORT) || 8000;
+// Penangan error terakhir: selalu JSON (bukan halaman HTML) agar klien dapat menampilkan pesan yang jelas.
+app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
+  if (err && (err.type === 'entity.parse.failed' || err instanceof SyntaxError)) return fail(res, 'Format permintaan tidak valid.', 400);
+  if (err && err.type === 'entity.too.large') return fail(res, 'Data terlalu besar.', 413);
+  console.error('[bizsim] error tak tertangani:', req.method, req.path, err);
+  if (res.headersSent) return;
+  fail(res, 'Terjadi kesalahan pada server. Coba lagi.', 500);
+});
 if (require.main === module) app.listen(PORT, '0.0.0.0', () => console.log('BizSim server on :' + PORT));
 module.exports = app;

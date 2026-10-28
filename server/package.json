@@ -1,16 +1,17 @@
 {
-  "name": "server",
+  "name": "bizsim-server",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "server.cjs",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.cjs"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "description": "BizSim API server",
   "dependencies": {
     "better-sqlite3": "^12.11.1",
-    "express": "^5.3.0"
+    "express": "^5.3.0",
+    "libsql": "^0.5.29"
+  },
+  "engines": {
+    "node": ">=22.12.0"
   }
 }

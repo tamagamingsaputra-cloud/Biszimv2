@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { rmSync } from 'node:fs';
+import { createRequire } from 'node:module';
 const ROOT = new URL('../', import.meta.url).pathname, PORT = 8791, DB = '/tmp/bizsim-fin-test.db';
 for (const f of [DB, DB + '-wal', DB + '-shm']) rmSync(f, { force: true });
 const srv = spawn('node', ['server.cjs'], { cwd: ROOT + 'server', env: { ...process.env, PORT: String(PORT), BIZSIM_DB: DB }, stdio: ['ignore', 'pipe', 'inherit'] });
@@ -24,7 +25,7 @@ await t('PIN: validasi & disimpan sebagai hash', async () => {
   assert.equal((await call(V, 'POST', '/api/fin/pin', { pin: '1234' })).ok, false);
   assert.equal((await call(V, 'POST', '/api/fin/pin', { pin: '111111' })).ok, false, 'PIN angka sama ditolak');
   assert.ok((await call(V, 'POST', '/api/fin/pin', { pin: '482915' })).ok);
-  const { default: Database } = await import(ROOT + 'server/node_modules/better-sqlite3/lib/index.js');
+  const Database = createRequire(ROOT + 'server/server.cjs')('better-sqlite3');
   const row = new Database(DB, { readonly: true }).prepare('SELECT pin_hash, pin_salt FROM fin_state WHERE visitor=?').get(V);
   assert.ok(row.pin_hash.length === 64 && !row.pin_hash.includes('482915') && row.pin_salt.length === 32);
 });
