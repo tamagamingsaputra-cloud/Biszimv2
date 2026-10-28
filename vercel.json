@@ -2,10 +2,6 @@
   "version": 2,
   "outputDirectory": "public",
   "functions": {
-    "api/[...path].js": {
-      "includeFiles": "server/**",
-      "maxDuration": 30
-    },
     "api/index.js": {
       "includeFiles": "server/**",
       "maxDuration": 30
@@ -22,5 +18,11 @@
       ]
     }
   ],
-  "installCommand": "npm install --package-lock=false"
+  "installCommand": "npm install --package-lock=false",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api?__p=:path*"
+    }
+  ]
 }

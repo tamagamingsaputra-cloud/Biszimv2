@@ -75,6 +75,23 @@ try {
   await t('POST tanpa body tidak membuat server crash', async () => {
     const r = await fetch(`http://localhost:${P}/api/edu/advance`, { method: 'POST', headers: { 'x-visitor-id': V } }); assert.ok(r.status < 500); await r.json();
   });
+  await t('adapter Vercel: rewrite /api?__p=... memetakan rute bersarang (mis. /api/fin/catalog)', async () => {
+    const r1 = await call(P, V, 'GET', '/api/fin/catalog'); assert.ok(r1.ok && r1.BANKS, 'baseline');
+  });
 } finally { srv.kill(); }
 
+// Adapter Vercel (api/index.js) dijalankan in-process terhadap server lokal.
+{
+  process.env.BIZSIM_DB = DB; process.env.PORT = '0';
+  const { createRequire } = await import('node:module'); const http = await import('node:http');
+  const handler = createRequire(ROOT + 'api/index.js')(ROOT + 'api/index.js');
+  const web = http.createServer(handler).listen(0); await new Promise(r => web.once('listening', r)); const port = web.address().port;
+  try {
+    await t('adapter Vercel: /api?__p=fin/catalog & /api?__p=state&x=1 & /api?__p= (akar)', async () => {
+      const g = path => fetch(`http://localhost:${port}${path}`, { headers: { 'x-visitor-id': V } }).then(r => r.json());
+      assert.ok((await g('/api?__p=fin/catalog')).ok); assert.ok('profile' in await g('/api?__p=state&x=1')); assert.equal((await g('/api?__p=')).name, 'BizSim API');
+      assert.ok((await g('/api/fin/catalog')).ok, 'URL asli yang dipertahankan juga bekerja');
+    });
+  } finally { web.close(); }
+}
 console.log(`${n} uji server/database lulus`);

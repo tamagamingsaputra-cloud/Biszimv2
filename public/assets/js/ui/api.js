@@ -35,7 +35,7 @@ export async function api(method, path, body, opts = {}) {
     return { ok: false, error: 'Server BizSim tidak dapat dihubungi. Periksa koneksi lalu coba lagi.', offline: true };
   }
   let data = null; try { data = await res.json(); } catch { data = null; }
-  if (!data) return { ok: false, error: `Respons server tidak valid (${res.status}).` };
+  if (!data) return { ok: false, error: `Respons server tidak valid (${res.status}) dari ${path}.` };
   if (!res.ok && data.ok !== false) data.ok = false;
   return data;
 }

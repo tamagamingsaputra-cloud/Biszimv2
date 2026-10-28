@@ -32,3 +32,9 @@ Direproduksi: server asli + driver yang menolak binding bernama → 500.
 - `package-lock.json` root belum memuat `libsql`; jalankan `npm install` sekali lalu commit (Vercel memakai `--package-lock=false`).
 - Dua baris lama di Turso: tidak disentuh. Bila salah satunya `visitor`/`profile` NULL itu sisa bug lama; hapus manual dengan
   `DELETE FROM players WHERE visitor IS NULL OR profile IS NULL;` setelah memeriksanya.
+
+## Tambahan (laporan "Katalog belum termuat — Respons server tidak valid (404)")
+Rute bersarang seperti `/api/fin/catalog` mengembalikan 404 non-JSON dari Vercel: routing bergantung pada fungsi catch-all
+berbasis nama-file `api/[...path].js` (dan pola `functions` dengan kurung siku). Diganti dengan satu fungsi `api/index.js` +
+`rewrites` di `vercel.json` (`/api/:path*` → `/api?__p=:path*`); path asli direkonstruksi di adapter sebelum masuk Express.
+Pesan error klien kini menyebut path yang gagal. Diuji lokal untuk kedua kemungkinan perilaku Vercel (URL asli dipertahankan / tidak).
