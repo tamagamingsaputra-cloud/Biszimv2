@@ -3,6 +3,7 @@ import { fmtDay } from '../engine/calendar.js';
 import * as F from '../engine/finance.js';
 import * as CAL from '../engine/calendar.js';
 import * as AG from '../engine/agenda.js';
+import * as SH from '../engine/shop.js';
 import { mountShell } from '../ui/shell.js';
 import { needTiles } from '../ui/needs-ui.js';
 import { editProfile } from '../ui/onboarding.js';
@@ -14,6 +15,9 @@ const EXP_LABEL = { pendidikan: 'Biaya pendidikan (saldo pribadi)', bisnis_rugi:
 const REAL_INCOME = k => !['trading_realized', 'investasi_realized'].includes(k);
 
 const NE = E.NE;
+const SHOP = { active: [] };
+const pollShop = async () => { const r = await SH.summary(); if (r.ok) { SHOP.active = [...r.arrived, ...r.ready, ...r.inDelivery, ...r.processing].slice(0, 3); await SH.syncGrants(); for (const f of r.fresh || []) toast(`${f.title}: ${f.body}`, 'ok'); } };
+setInterval(() => { if (!document.hidden) pollShop(); }, 6000); pollShop();
 page.innerHTML = `
   <section class="panel" aria-label="Kehidupan karakter"><div class="panel-b"><div class="life-hero">
     <div class="stack" style="gap:12px"><div class="row between wrap" style="gap:12px" id="hero-who"></div><div class="needs" id="hero-needs" aria-label="Kebutuhan karakter"></div></div>
@@ -92,6 +96,7 @@ function notifs() {
   for (const st of F.V?.statements || []) if (st.status === 'terbuka') out.push([st.dueDay - E.dayNow() <= 3 ? 'neg' : 'warn', `Tagihan kartu kredit ${rp(st.amount - st.paid)} jatuh tempo ${fmtDay(st.dueDay)}.`, 'finance.html#tagihan']);
   for (const o of F.V?.orders || []) if (!['diterima', 'dibatalkan', 'gagal'].includes(F.orderStage(o))) out.push(['info', `Pesanan ${F.merchant(o.merchant)?.name || ''}: ${{ diproses: 'sedang diproses', diantar: 'dalam perjalanan', tiba: 'sudah tiba — terima pesanan', gagal: 'gagal' }[F.orderStage(o)] || F.orderStage(o)}.`, 'life.html#antar']);
   for (const t of (F.V?.tx || []).filter(t => t.status === 'gagal' && t.day >= E.dayNow() - 1).slice(0, 2)) out.push(['neg', `Transaksi gagal: ${t.label}${t.reason ? ` — ${t.reason}` : ''}.`, 'finance.html#riwayat']);
+  for (const o of SHOP.active || []) out.push(['info', `Belanja ${o.storeName}: ${o.fulLabel}${o.canClaim ? ' — konfirmasi penerimaan' : ''}.`, 'shop.html#pesanan']);
   if (E.S.fin.outbox.length) out.push(['warn', `${E.S.fin.outbox.length} transaksi menunggu dikirim ke server.`, 'finance.html']);
   if (F.status.error) out.push(['neg', `Server keuangan: ${F.status.error}`, 'finance.html']);
   const html = `<div class="panel-h"><h2>Notifikasi</h2><span class="subtle">${out.length || 'Tidak ada'}</span></div>${out.length ? `<ul class="list">${out.slice(0, 7).map(([t, x, h]) => `<li><span class="chip ${t}" style="flex:none">${t === 'neg' ? 'Penting' : t === 'warn' ? 'Perhatian' : 'Info'}</span><a href="${h}" style="flex:1;font-size:13px;color:inherit">${esc(x)}</a></li>`).join('')}</ul>` : '<div class="panel-b subtle">Kondisi karakter & keuangan aman.</div>'}`;

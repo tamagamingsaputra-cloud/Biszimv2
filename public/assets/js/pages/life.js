@@ -104,12 +104,12 @@ const VIEW = {
   },
   antar() {
     const orders = (F.V?.orders || []).filter(o => o.merchant === 'antarrasa');
-    return `${ordersPanel(orders, 'Pesanan makanan')}<h3 style="margin:16px 0 8px">Menu JalanYuk Food</h3><div class="shop">${merchantCard('antarrasa', { online: true })}</div>
+    return `<div class="msg info" style="margin-bottom:12px">${icon('cart')}<span>Toko online lengkap dengan keranjang, voucher, dan pelacakan ada di <a href="shop.html#toko"><b>Buka Belanja &amp; Order Center</b></a> — status pesanan, pelacakan, retur/refund, dan reward.</span></div>${ordersPanel(orders, 'Pesanan makanan lama')}<h3 style="margin:16px 0 8px">Menu JalanYuk Food</h3><div class="shop">${merchantCard('antarrasa', { online: true })}</div>
     <p class="subtle">Harga + ongkir Rp ${F.CAT.DELIVERY.deliveryFee.toLocaleString('id-ID')} + biaya layanan Rp ${F.CAT.DELIVERY.serviceFee.toLocaleString('id-ID')} dihitung server. Pesanan bisa dibatalkan selama status "Diproses" (dana dikembalikan, status transaksi Reversed).</p>`;
   },
   belanja() {
     const orders = (F.V?.orders || []).filter(o => o.merchant === 'pasarku');
-    return `${ordersPanel(orders, 'Pesanan Pasarku')}<h3 style="margin:16px 0 8px">Pasarku (marketplace)</h3><div class="shop">${merchantCard('pasarku', { online: true })}</div><div style="margin-top:14px">${inventoryPanel()}</div>`;
+    return `<div class="msg info" style="margin-bottom:12px">${icon('cart')}<span>Belanja online dan offline lengkap (keranjang, voucher, retur, reward) ada di <a href="shop.html#toko"><b>Belanja &amp; Order Center</b></a>.</span></div>${ordersPanel(orders, 'Pesanan Pasarku lama')}<h3 style="margin:16px 0 8px">Pasarku (marketplace)</h3><div class="shop">${merchantCard('pasarku', { online: true })}</div><div style="margin-top:14px">${inventoryPanel()}</div>`;
   },
   transport() {
     const cur = E.S.life.commute, ad = F.V?.autodebit?.jalanyuk, gw = F.accounts('wallet').find(a => a.provider === 'gojalan');

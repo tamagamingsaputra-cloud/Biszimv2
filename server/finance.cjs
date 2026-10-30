@@ -497,6 +497,8 @@ module.exports = function mountFinance(app, H) {
   // Dipanggil server.cjs: PUT /api/game ditolak bila save tidak memuat penyesuaian tunai terbaru.
   return {
     migrate,
+    // Pembantu keuangan untuk modul commerce (satu sumber kebenaran untuk saldo, limit, PIN, dan buku transaksi).
+    core: { resolveMethod, debitSource, applyDebit, refund, checkPin, addTx, setResp, txRow, view, idemOk, findIdem, acct, absOf, openAt, hoursTxt, cashOf, cashApply, guard, st, advance, SEC_DAY, nameOf, fmt },
     checkSeq(visitor, game) {
       const row = db.prepare('SELECT fin_seq FROM players WHERE visitor=?').get(visitor) || {};
       const need = row.fin_seq || 0, have = Number(game.finSeq) || 0;

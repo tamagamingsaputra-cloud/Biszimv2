@@ -18,7 +18,7 @@ const QRIS_STEPS = ['Pilih QRIS', 'Sumber dana', 'Konfirmasi jumlah', 'Verifikas
 const STEPS = ['Metode', 'Sumber dana', 'Konfirmasi', 'PIN', 'Proses', 'Hasil'];
 
 /** Kelompokkan metode merchant (mis. 'wallet:ovio') menjadi pilihan + daftar sumber dana. */
-function options(m) {
+export function options(m) {
   const out = []; const acc = F.accounts();
   const walletIds = m.methods.filter(x => x.startsWith('wallet')).map(x => x.split(':')[1] || '*');
   for (const key of m.methods) {

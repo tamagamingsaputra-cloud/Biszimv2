@@ -114,3 +114,6 @@ The avatar picker currently saves locally in the browser and is not synced acros
 
 ## Database persisten untuk Vercel (v7.1.2)
 Vercel Functions tidak boleh memakai file SQLite lokal sebagai penyimpanan progres permanen. Konfigurasikan `TURSO_DATABASE_URL` dan `TURSO_AUTH_TOKEN` sebagai Environment Variables server-side di Vercel sebelum deploy. Tanpa keduanya, API sengaja gagal mulai untuk mencegah progres tersimpan pada filesystem sementara. Panduan lengkap: `docs/VERCEL-PERSISTENT-DATABASE-v7.1.2.md`.
+
+## Belanja & Order Center (v7.2.0)
+Toko online/offline, keranjang, voucher, pelacakan pesanan, retur/refund, dan reward — lihat [docs/COMMERCE.md](docs/COMMERCE.md). Jalankan `npm run test:commerce`.

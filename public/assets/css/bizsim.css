@@ -772,3 +772,23 @@ body[data-module] .nav-link[aria-current="page"] { box-shadow:inset 3px 0 0 var(
 .avatar-option:focus-visible { outline:3px solid var(--page-accent,#0E2A47); outline-offset:3px; }
 @media(max-width:380px) { .avatar-option { width:30px;height:30px; } .avatar-picker { gap:5px; } }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; transition:none!important; animation:none!important; } }
+
+/* ——— Belanja & Order Center ——— */
+.shop-sum-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 8px; }
+.sum-tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sum-tile span { font-size: 11.5px; color: var(--text-2); } .sum-tile b { font-size: 18px; overflow-wrap: anywhere; } .sum-tile.wide { grid-column: span 2; } .sum-tile.wide b { font-size: 13px; }
+.shop-promos, .shop-stores { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.shop-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.prod-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.prod, .ord { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; box-shadow: var(--shadow); min-width: 0; }
+.ord { margin-bottom: 12px; } .prod.off { opacity: .6; }
+.prod-h, .ord-h { display: flex; gap: 10px; justify-content: space-between; align-items: flex-start; }
+.prod-h .ico { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 8px; background: var(--surface-2); flex: none; } .prod-h .ico svg { width: 18px; height: 18px; }
+.prod-f { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; flex-wrap: wrap; margin-top: auto; }
+.bonus-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font-size: 12px; color: var(--green-ink); } .bonus-list svg { width: 13px; height: 13px; vertical-align: -2px; }
+.bar { height: 8px; background: var(--surface-2); border-radius: 99px; overflow: hidden; } .bar i { display: block; height: 100%; background: var(--navy); border-radius: 99px; }
+.stg { list-style: none; margin: 0; padding: 0; display: flex; gap: 4px; flex-wrap: wrap; font-size: 11px; color: var(--text-2); }
+.stg li { display: flex; align-items: center; gap: 4px; } .stg li i { width: 8px; height: 8px; border-radius: 50%; background: var(--border); } .stg li.done i { background: var(--green-ink); } .stg li.current i { background: var(--navy); box-shadow: 0 0 0 3px var(--blue-bg); } .stg li.current { color: var(--text); font-weight: 600; }
+.tl { list-style: none; margin: 0; padding: 0 0 0 10px; border-left: 2px solid var(--border); display: grid; gap: 8px; } .tl li { padding-left: 8px; }
+.tabs.sub { margin-top: 0; } li.unread { background: var(--blue-bg); }
+@media (max-width: 640px) { .sum-tile.wide { grid-column: span 1; } .prod-grid { grid-template-columns: 1fr; } .shop-filters { grid-template-columns: 1fr 1fr; } }

@@ -11,6 +11,7 @@ export const NAV = [
   { id: 'dashboard', href: 'index.html', label: 'Dashboard', short: 'Home', icon: 'dashboard', group: 'Hidup' },
   { id: 'life', href: 'life.html', label: 'Kehidupan', short: 'Hidup', icon: 'life', group: 'Hidup' },
   { id: 'calendar', href: 'calendar.html', label: 'Kalender & Jadwal', short: 'Kalender', icon: 'calendar', group: 'Hidup' },
+  { id: 'shop', href: 'shop.html', label: 'Belanja & Order', short: 'Belanja', icon: 'cart', group: 'Hidup' },
   { id: 'finance', href: 'finance.html', label: 'Keuangan', short: 'Uang', icon: 'wallet', group: 'Uang & Aset' },
   { id: 'market', href: 'market.html', label: 'Asset Market', short: 'Market', icon: 'market', group: 'Uang & Aset' },
   { id: 'investments', href: 'investments.html', label: 'Investments', short: 'Invest', icon: 'invest', group: 'Uang & Aset' },
@@ -25,7 +26,7 @@ export const MENU = [
   { title: 'Hidup sehari-hari', items: [
     ['dashboard', 'index.html', 'Dashboard', 'dashboard'], ['life', 'life.html#kebutuhan', 'Kebutuhan', 'life'], ['life', 'life.html#makan', 'Makan & Minum', 'food'],
     ['life', 'life.html#istirahat', 'Istirahat & Mandi', 'bed'], ['life', 'life.html#kesehatan', 'Kesehatan', 'heart'], ['life', 'life.html#antar', 'Pesan Antar', 'truck'],
-    ['life', 'life.html#belanja', 'Belanja', 'cart'], ['life', 'life.html#transport', 'Transport', 'bus'], ['calendar', 'calendar.html', 'Kalender', 'calendar'] ] },
+    ['shop', 'shop.html#toko', 'Toko Online & Offline', 'cart'], ['shop', 'shop.html#pesanan', 'Order Center', 'box'], ['shop', 'shop.html#reward', 'Reward Belanja', 'gift'], ['life', 'life.html#transport', 'Transport', 'bus'], ['calendar', 'calendar.html', 'Kalender', 'calendar'] ] },
   { title: 'Keuangan', items: [
     ['finance', 'finance.html#ringkasan', 'Ringkasan', 'wallet'], ['finance', 'finance.html#rekening', 'Rekening Bank', 'bank'], ['finance', 'finance.html#kartu', 'Kartu', 'card'],
     ['finance', 'finance.html#dompet', 'Dompet Digital', 'qr'], ['finance', 'finance.html#topup', 'Top Up', 'up'], ['finance', 'finance.html#transfer', 'Transfer', 'transfer'],

@@ -69,7 +69,7 @@ function freshState(seed, profile = null, charId = null) {
     ledger: [],
     activity: [],
   };
-  st.finSeq = 0; st.fin = { outbox: [], payroll: null };
+  st.finSeq = 0; st.shopSeq = 0; st.fin = { outbox: [], payroll: null };
   S = st;
   CR.initCreator(st);
   NE.initLife(st);
@@ -120,6 +120,7 @@ async function doFlush(keepalive) {
   // Server menolak save dengan jam lebih lama (tab lain sudah lebih maju): hentikan jam lokal agar tidak bercabang.
   // Server keuangan sudah mengubah uang tunai (setor/tarik/bayar tunai) setelah save terakhir: terapkan lalu kirim ulang.
   if (r.code === 'finseq') { applyCashAdj(r.adjustments || []); dirty = true; sync.status = 'saving'; setTimeout(() => flush(), 30); }
+  if (r.code === 'shopseq') { applyShopGrants(r.grants || []); dirty = true; sync.status = 'saving'; setTimeout(() => flush(), 30); }
   if (r.code === 'stale') { stale = true; dirty = false; stop(); S.settings.paused = true; sync.status = 'stale'; emit('change'); }
   emit('sync');
 }
@@ -263,6 +264,22 @@ export function applyCashAdj(list) {
     if (a.seq <= (S.finSeq || 0)) continue;
     S.player.balance = Math.round(S.player.balance + a.delta); S.finSeq = a.seq; n++;
     if (!INTERNAL.has(a.cat)) addTo(a.delta < 0 ? 'expense' : 'income', a.cat || 'lainnya', Math.abs(a.delta));
+  }
+  if (n) { save(); emit('change'); }
+  return n;
+}
+/** Hadiah/barang belanja yang sudah dikonfirmasi server (berurutan, idempoten per seq). Server tidak menerima save yang belum memuatnya. */
+export function applyShopGrants(list) {
+  let n = 0;
+  for (const g of [...(list || [])].sort((x, y) => x.seq - y.seq)) {
+    if (g.seq <= (S.shopSeq || 0)) continue;
+    S.shopSeq = g.seq; n++;
+    if (g.kind === 'inv_add') NE.addInventory(g.item, g.qty || 1);
+    else if (g.kind === 'consume') { const r = (NE.blockedReason() || NE.overlapReason(g.min || 5)) ? null : NE.start({ kind: 'beli', label: g.label, min: g.min || 5, fx: g.fx }); if (!r) NE.addInventory({ id: 'consume-' + g.seq, name: g.label, kind: 'konsumsi-' + g.seq, fx: g.fx, min: g.min || 5 }, 1), log('kehidupan', `${g.label} disimpan di inventori (karakter sedang sibuk).`); }
+    else if (g.kind === 'need') NE.applyFx(g.fx);
+    else if (g.kind === 'knowledge') { addXp(g.amount || 0); log('skill', `Bonus belajar dari belanja: +${g.amount} Knowledge XP.`); }
+    else if (g.kind === 'skill') { S.player.skills[g.skill] = (S.player.skills[g.skill] || 0) + (g.amount || 0); log('skill', `Bonus belanja: +${g.amount} skill ${g.skill}.`); }
+    else if (g.kind === 'log') log('belanja', g.text);
   }
   if (n) { save(); emit('change'); }
   return n;
@@ -812,7 +829,7 @@ function migrate() {
   if (S.clock.sec == null) S.clock.sec = S.clock.sub * 60;
   if (!CAL.SPEEDS.some(x => x.rate === S.settings.rate)) S.settings.rate = CAL.SPEEDS.find(x => x.rate === CAL.DEFAULT_RATE * (S.settings.speed || 1))?.rate || CAL.DEFAULT_RATE;
   if (!S.creator) CR.initCreator(S);
-  NE.initLife(S); S.fin ||= { outbox: [], payroll: null }; S.fin.outbox ||= []; S.finSeq ||= 0;
+  NE.initLife(S); S.fin ||= { outbox: [], payroll: null }; S.fin.outbox ||= []; S.finSeq ||= 0; S.shopSeq ||= 0;
   if (S.youtube) CR.migrateLegacyYoutube(S, dayNow());
 }
 export async function boot({ createCharacter }) {

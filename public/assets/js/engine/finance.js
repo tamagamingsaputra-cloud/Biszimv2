@@ -13,7 +13,7 @@ const notify = () => subs.forEach(f => { try { f(V); } catch (e) { console.error
 
 export const newIdem = (p = 'tx') => `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 const clock = () => ({ day: E.dayNow(), sec: E.secOfDay() });
-function accept(r) {
+export function accept(r) {
   if (r && r.accounts) { V = r; E.setFinView(r); status.loadedAt = Date.now(); }
   if (r && r.cashAdj?.length) E.applyCashAdj(r.cashAdj);
   notify(); return r;

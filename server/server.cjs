@@ -43,7 +43,7 @@ const tx = fn => typeof db.transaction === 'function' ? db.transaction(fn)
 
 // Skema dibuat malas (pada permintaan pertama) dan DICOBA ULANG bila gagal, sehingga Turso yang sempat
 // tidak terjangkau saat cold start tidak membuat fungsi mati permanen. Semua statement idempoten.
-let schemaReady = false, FINANCE = null;
+let schemaReady = false, FINANCE = null, COMMERCE = null;
 function ensureSchema() {
   if (schemaReady) return;
   db.exec(`
@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS edu_ledger (id INTEGER PRIMARY KEY AUTOINCREMENT, vis
 `);
   for (const col of ['clock_abs REAL', 'game_key TEXT', 'fin_seq INTEGER DEFAULT 0']) { try { db.exec(`ALTER TABLE players ADD COLUMN ${col}`); } catch { /* kolom sudah ada */ } }
   FINANCE.migrate();
+  COMMERCE.migrate();
   for (const ix of [
     'CREATE INDEX IF NOT EXISTS ix_sessions_visitor ON exam_sessions (visitor)',
     'CREATE INDEX IF NOT EXISTS ix_results_visitor ON exam_results (visitor, char_id, created_at)',
@@ -333,6 +334,10 @@ app.get('/api/state', (req, res) => {
 });
 app.get('/api/calendar', (req, res) => res.json({ ok: true, calendar: CAL.CALENDAR, daysPerYear: CAL.DAYS_PER_YEAR, secPerTick: CAL.SEC_PER_TICK, ticksPerDay: CAL.TICKS_PER_DAY, weekdays: CAL.WEEKDAYS }));
 FINANCE = require('./finance.cjs')(app, { db, tx, vid, rid, now, fail, getPlayer, ageAt });
+// Helper edukasi untuk modul belanja: bonus penguasaan pelajaran hanya berlaku untuk mata pelajaran periode berjalan.
+const eduInfo = p => { const e = p.edu; if (!e || e.status !== 'enrolled') return { enrolled: false, subjects: [], termKey: null }; return { enrolled: true, subjects: subjectsNow(e).map(s => s.id), termKey: termKey(e) }; };
+const eduMastery = (v, subjectId, amount) => { const p = getPlayer(v); const e = p && p.edu; if (!e || e.status !== 'enrolled' || e.mastery[subjectId] == null) return null; e.mastery[subjectId] = Math.min(100, (e.mastery[subjectId] || 0) + amount); savePlayer(p); return e.mastery[subjectId]; };
+COMMERCE = require('./commerce.cjs')(app, { db, tx, vid, rid, now, fail, getPlayer, ageAt, eduInfo, eduMastery }, FINANCE.core);
 app.put('/api/game', (req, res) => {
   const p = getPlayer(vid(req)); if (!p || !p.profile) return fail(res, 'Profil belum dibuat.', 404);
   const game = req.body && req.body.game;
@@ -340,6 +345,8 @@ app.put('/api/game', (req, res) => {
   // Uang tunai yang sudah diubah server keuangan (fin_seq) tidak boleh tertimpa save lama.
   const missing = FINANCE.checkSeq(p.visitor, game);
   if (missing) return res.status(409).json({ ok: false, code: 'finseq', adjustments: missing, error: 'Save menunggu penyesuaian uang tunai dari server keuangan.' });
+  const grants = COMMERCE.checkSeq(p.visitor, game);
+  if (grants) return res.status(409).json({ ok: false, code: 'shopseq', grants, error: 'Save menunggu hadiah/barang belanja dari server.' });
   const clk = CAL.readClock(game); if (!clk) return fail(res, 'Jam simulasi pada save tidak valid.');
   // Jam simulasi hanya boleh maju untuk karakter & dunia yang sama. Save dengan jam lebih lama (mis. tab lain yang
   // tertinggal) ditolak agar tidak menimpa progres yang lebih baru.
@@ -367,6 +374,7 @@ app.post('/api/profile', (req, res) => {
   const p = { visitor: v, charId, profile, edu, game: null };
   db.prepare('UPDATE players SET game=NULL, clock_abs=NULL, game_key=NULL WHERE visitor=?').run(v);
   FINANCE.reset(v);
+  COMMERCE.reset(v);
   savePlayer(p);
   // Jangan pernah menjawab sukses sebelum memastikan data benar-benar bisa dibaca ulang dari database.
   const saved = getPlayer(v);
