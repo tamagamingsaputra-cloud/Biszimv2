@@ -43,7 +43,7 @@ const tx = fn => typeof db.transaction === 'function' ? db.transaction(fn)
 
 // Skema dibuat malas (pada permintaan pertama) dan DICOBA ULANG bila gagal, sehingga Turso yang sempat
 // tidak terjangkau saat cold start tidak membuat fungsi mati permanen. Semua statement idempoten.
-let schemaReady = false, FINANCE = null, COMMERCE = null;
+let schemaReady = false, FINANCE = null, COMMERCE = null, MARKET = null;
 function ensureSchema() {
   if (schemaReady) return;
   db.exec(`
@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS edu_ledger (id INTEGER PRIMARY KEY AUTOINCREMENT, vis
   for (const col of ['clock_abs REAL', 'game_key TEXT', 'fin_seq INTEGER DEFAULT 0']) { try { db.exec(`ALTER TABLE players ADD COLUMN ${col}`); } catch { /* kolom sudah ada */ } }
   FINANCE.migrate();
   COMMERCE.migrate();
+  MARKET.migrate();
   for (const ix of [
     'CREATE INDEX IF NOT EXISTS ix_sessions_visitor ON exam_sessions (visitor)',
     'CREATE INDEX IF NOT EXISTS ix_results_visitor ON exam_results (visitor, char_id, created_at)',
@@ -283,7 +284,7 @@ const publicQ = qs => qs.map(({ correct, explanation, ...rest }) => rest);
 
 // ————— HTTP —————
 const app = express();
-const fail = (res, error, code = 400) => res.status(code).json({ ok: false, error });
+const fail = (res, error, code = 400, extra) => res.status(code).json({ ok: false, error, ...(extra || {}) });
 app.use((req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 app.use(express.json({ limit: '4mb' }));
 app.use((req, res, next) => { if (req.body === undefined || req.body === null || typeof req.body !== 'object') req.body = {}; next(); });
@@ -338,6 +339,7 @@ FINANCE = require('./finance.cjs')(app, { db, tx, vid, rid, now, fail, getPlayer
 const eduInfo = p => { const e = p.edu; if (!e || e.status !== 'enrolled') return { enrolled: false, subjects: [], termKey: null }; return { enrolled: true, subjects: subjectsNow(e).map(s => s.id), termKey: termKey(e) }; };
 const eduMastery = (v, subjectId, amount) => { const p = getPlayer(v); const e = p && p.edu; if (!e || e.status !== 'enrolled' || e.mastery[subjectId] == null) return null; e.mastery[subjectId] = Math.min(100, (e.mastery[subjectId] || 0) + amount); savePlayer(p); return e.mastery[subjectId]; };
 COMMERCE = require('./commerce.cjs')(app, { db, tx, vid, rid, now, fail, getPlayer, ageAt, eduInfo, eduMastery }, FINANCE.core);
+MARKET = require('./market.cjs')(app, { db, tx, vid, rid, now, fail, getPlayer, ageAt }, FINANCE.core, COMMERCE);
 app.put('/api/game', (req, res) => {
   const p = getPlayer(vid(req)); if (!p || !p.profile) return fail(res, 'Profil belum dibuat.', 404);
   const game = req.body && req.body.game;
@@ -375,6 +377,7 @@ app.post('/api/profile', (req, res) => {
   db.prepare('UPDATE players SET game=NULL, clock_abs=NULL, game_key=NULL WHERE visitor=?').run(v);
   FINANCE.reset(v);
   COMMERCE.reset(v);
+  MARKET.reset(v);
   savePlayer(p);
   // Jangan pernah menjawab sukses sebelum memastikan data benar-benar bisa dibaca ulang dari database.
   const saved = getPlayer(v);

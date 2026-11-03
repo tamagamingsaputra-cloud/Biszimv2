@@ -1,6 +1,6 @@
 {
   "name": "bizsim-v7-1",
-  "version": "7.2.0",
+  "version": "7.3.0",
   "private": true,
   "description": "BizSim life, education, finance and business simulation",
   "engines": {
@@ -21,6 +21,7 @@
     "test:career-market": "node tests/career-market.test.mjs",
     "test:vercel-db": "node tests/vercel-database.test.mjs",
     "test:server": "node tests/server-db.test.mjs",
-    "test": "npm run test:calendar && npm run test:needs && npm run test:career-market && npm run test:deployment-config && npm run test:vercel-db && npm run test:server && npm run test:finance && npm run test:commerce"
+    "test": "npm run test:calendar && npm run test:needs && npm run test:career-market && npm run test:deployment-config && npm run test:vercel-db && npm run test:server && npm run test:finance && npm run test:commerce && npm run test:market",
+    "test:market": "node tests/market.test.mjs"
   }
 }

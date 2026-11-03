@@ -18,7 +18,7 @@ const checkout = (v, c, o) => call(v, 'POST', '/api/shop/checkout', { idem: idem
 await t('persiapan: profil, save, belum ada pesanan (tanpa data contoh)', async () => {
   assert.ok((await call(V, 'POST', '/api/profile', { name: 'Uji Belanja', birthDate: '2019-09-01', family: 'menengah', city: 'Pacitan', gameDay: 0 })).ok);
   assert.ok((await call(V, 'PUT', '/api/game', { game: game(D, 12, 500_000) })).ok);
-  const cat = await call(V, 'GET', '/api/shop/catalog' + q(clk(D, 12))); assert.ok(cat.ok); assert.ok(cat.products.length >= 40);
+  const cat = await call(V, 'GET', '/api/shop/catalog' + q(clk(D, 12))); assert.ok(cat.ok); assert.ok(cat.products.length >= 30);
   const o = await call(V, 'GET', '/api/shop/orders' + q(clk(D, 12))); assert.equal(o.orders.length, 0);
   const r = await call(V, 'GET', '/api/shop/rewards' + q(clk(D, 12))); assert.equal(r.rewards.length, 0);
 });

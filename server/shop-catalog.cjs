@@ -67,7 +67,6 @@ const STORES = [
   { id: 'klinik', channel: 'offline', name: 'Klinik Sehat Bersama', cat: 'kesehatan', blurb: 'Konsultasi dokter umum dengan antrean harian.', rating: 4.6, ratingCount: 410, modes: ['counter'], from: 'klinik' },
   { id: 'layarkota', channel: 'offline', name: 'Bioskop Layar Kota', cat: 'hiburan', blurb: 'Tiket film. Kursi terbatas per hari.', rating: 4.3, ratingCount: 733, modes: ['counter'], from: 'layarkota' },
   { id: 'antarrasa', channel: 'online', name: 'JalanYuk Food', cat: 'makanan', blurb: 'Pesan antar makanan. Waktu tiba bergantung dapur, antrean, dan jarak kurir.', rating: 4.4, ratingCount: 2210, modes: ['food'], from: 'antarrasa', origin: 'local' },
-  { id: 'pasarku', channel: 'online', name: 'Pasarku (marketplace)', cat: 'marketplace', blurb: 'Marketplace berbagai penjual dari banyak kota. Pengiriman 1–4 hari sesuai jarak.', rating: 4.3, ratingCount: 5820, modes: ['parcel'], from: 'pasarku' },
   { id: 'pustaka', channel: 'online', name: 'Pustaka Digital', cat: 'sekolah', blurb: 'Buku elektronik dan kursus video. Akses terkirim ke akunmu.', rating: 4.6, ratingCount: 1470, modes: ['digital', 'parcel'], hours: [0, 24], days: null, methods: ['wallet', 'debit', 'credit', 'qris', 'transfer'], origin: 'Yogyakarta' },
 ];
 for (const s of STORES) {
@@ -127,17 +126,7 @@ fromLegacy('ant-sate', { type: 'makanan', use: 'eat', prepMin: 25, quality: 4, r
 fromLegacy('ant-jus', { type: 'minuman', use: 'eat', prepMin: 10, quality: 3, rating: 4.3, desc: 'Dua gelas jus buah segar.' });
 add({ id: 'ant-nasgor', store: 'antarrasa', name: 'Nasi goreng spesial', price: 25000, min: 20, fx: { hunger: 58, mood: 6, thirst: -3 }, type: 'makanan', use: 'eat', prepMin: 14, quality: 4, rating: 4.5, desc: 'Nasi goreng dengan telur, ayam, dan acar.' });
 add({ id: 'ant-bakso', store: 'antarrasa', name: 'Bakso urat + es teh', price: 22000, min: 20, fx: { hunger: 50, thirst: 20, mood: 6 }, type: 'makanan', use: 'eat', prepMin: 12, quality: 4, rating: 4.5, desc: 'Bakso urat kuah gurih dengan es teh.' });
-// Pasarku (marketplace; origin = kota penjual)
-fromLegacy('kasur', { type: 'peralatan', use: 'own', origin: 'Surabaya', returnable: true, quality: 4, rating: 4.4, stock: { max: 6, refillDays: 7, refillQty: 3 }, desc: 'Kasur busa 160×200. Pemulihan energi saat tidur +15%.' });
-fromLegacy('kipas', { type: 'peralatan', use: 'own', origin: 'Semarang', returnable: true, quality: 3, rating: 4.2, stock: { max: 10, refillDays: 5, refillQty: 5 }, desc: 'Kipas angin berdiri 3 kecepatan.' });
-fromLegacy('sabun-online', { type: 'kebersihan', use: 'stock', origin: 'Malang', returnable: false, quality: 3, rating: 4.3, stock: { max: 60, refillDays: 4, refillQty: 30 }, desc: 'Paket sabun dan sampo 10 kali mandi, lebih hemat.' });
-fromLegacy('botol', { type: 'peralatan', use: 'own', origin: 'Jakarta Selatan', returnable: true, quality: 4, rating: 4.5, stock: { max: 25, refillDays: 5, refillQty: 10 }, desc: 'Botol minum 1 liter bebas BPA.' });
-fromLegacy('sepeda', { type: 'peralatan', use: 'own', origin: 'Bandung', returnable: true, quality: 4, rating: 4.6, stock: { max: 4, refillDays: 10, refillQty: 2 }, desc: 'Sepeda kota. Membuka moda perjalanan sepeda.' });
-add({ id: 'tas-sekolah', store: 'pasarku', name: 'Tas sekolah ransel', price: 180000, min: 0, fx: {}, type: 'perlengkapan', use: 'learn', origin: 'Bandung', returnable: true, quality: 4, rating: 4.4, stock: { max: 12, refillDays: 7, refillQty: 6 }, desc: 'Ransel dengan banyak kantong dan penyangga punggung.',
-  bonus: [{ key: 'mood', kind: 'need', fx: { mood: 8 }, once: 'item', label: 'Mood naik: tas baru' }] });
-add({ id: 'mie-dus', store: 'pasarku', name: 'Mie instan 1 dus (40 bungkus)', price: 105000, min: 15, fx: { hunger: 30, thirst: -5 }, health: -0.5, qtyPerUnit: 40, type: 'makanan', use: 'stock', origin: 'Surabaya', returnable: false, quality: 2, rating: 4.1, stock: { max: 20, refillDays: 5, refillQty: 10 }, desc: 'Satu dus berisi 40 bungkus. Masuk inventori.' });
-add({ id: 'sepatu', store: 'pasarku', name: 'Sepatu olahraga', price: 320000, min: 0, fx: {}, type: 'perlengkapan', use: 'learn', origin: 'Jakarta Selatan', returnable: true, quality: 4, rating: 4.3, stock: { max: 8, refillDays: 7, refillQty: 4 }, desc: 'Sepatu ringan untuk olahraga harian.',
-  bonus: [{ key: 'mood', kind: 'need', fx: { mood: 6, stress: -4 }, once: 'item', label: 'Mood naik dan stres turun: sepatu baru' }] });
+// (Pasarku dipindahkan: peralatan rumah & kendaraan kini dijual lewat Marketplace — lihat market-catalog.cjs)
 // Pustaka Digital
 add({ id: 'ebook-keuangan', store: 'pustaka', name: 'E-book: Dasar Mengatur Uang', price: 49000, min: 0, fx: {}, type: 'digital', use: 'learn', mode: 'digital', minAge: 10, quality: 4, rating: 4.7, desc: 'Anggaran, menabung, dan tujuan keuangan untuk pemula.',
   bonus: [{ key: 'knowledge', kind: 'knowledge_xp', amount: 15, once: 'item' }, { key: 'skill', kind: 'skill_xp', skill: 'keuangan', amount: 0.4, once: 'item' }] });
@@ -181,7 +170,6 @@ const RULES = {
 const PROMOS = [
   { id: 'P-KOPI-SORE', label: 'Diskon 15% Kopi Senja jam 14.00–17.00', store: 'kopisenja', kind: 'percent', value: 0.15, max: 10000, hours: [14, 17] },
   { id: 'P-FOOD-ONGKIR', label: 'Gratis ongkir JalanYuk Food min. Rp 80.000', store: 'antarrasa', kind: 'shipping', minSpend: 80000 },
-  { id: 'P-PASAR-ONGKIR', label: 'Gratis ongkir Pasarku min. Rp 150.000', store: 'pasarku', kind: 'shipping', minSpend: 150000 },
   { id: 'P-FILM-SELASA', label: 'Tiket film diskon Rp 10.000 setiap Selasa', store: 'layarkota', kind: 'fixed', value: 10000, days: [2] },
   { id: 'P-SEKOLAH', label: 'Diskon 10% buku & ATK Pelita untuk pelajar (usia < 18)', store: 'pelita', kind: 'percent', value: 0.10, max: 25000, maxAge: 17 },
 ];

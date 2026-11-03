@@ -29,8 +29,11 @@ const fmtRp = n => 'Rp ' + Math.round(n).toLocaleString('id-ID');
 module.exports = function mountCommerce(app, H, F) {
   const { db, tx: dbTx, vid, rid, now, fail, getPlayer, ageAt, eduInfo, eduMastery } = H;
   const { resolveMethod, debitSource, applyDebit, refund, checkPin, addTx, setResp, txRow, view: finView, idemOk, acct, absOf, hoursTxt, cashOf, cashApply, guard } = F;
-  const STORE = id => C.STORES.find(s => s.id === id);
-  const PROD = id => C.PRODUCTS.find(p => p.id === id);
+  // Registri eksternal: modul marketplace menyediakan toko/produk dinamis (id berawalan "mp:") tanpa menduplikasi mesin pesanan.
+  const EXT = { store: null, prod: null };
+  const hooks = { complete: [], release: [], paylaterRefund: null };
+  const STORE = id => C.STORES.find(s => s.id === id) || (EXT.store ? EXT.store(id) : null);
+  const PROD = id => C.PRODUCTS.find(p => p.id === id) || (EXT.prod ? EXT.prod(id) : null);
   const FUL = mode => C.FULFILLMENT[mode];
 
   // ————————————————————————— skema —————————————————————————
@@ -263,8 +266,8 @@ module.exports = function mountCommerce(app, H, F) {
     arriving: ['Pesanan hampir tiba', o => `Kurir hampir tiba untuk pesanan ${o.id}.`], delivered: ['Pesanan tiba', o => o.mode === 'digital' ? `Akses produk digital pesanan ${o.id} tersedia.` : `Pesanan ${o.id} tiba. Konfirmasi penerimaan di Order Center.`], ready_for_pickup: ['Pesanan siap diambil', o => `Pesanan ${o.id} siap diambil di ${o.store_name}.`] };
 
   // ————————————————————————— refund & pemulihan —————————————————————————
-  const srcOf = o => { const s = parse(o.source, {}); return s.type === 'cash' ? { type: 'cash' } : { type: 'acct', acct: acct(o.visitor, s.id) }; };
-  function releaseVoucher(o, at) { if (o.voucher_id) { const vc = db.prepare('SELECT * FROM shop_vouchers WHERE id=?').get(o.voucher_id); if (vc && vc.status === 'used' && vc.used_order === o.id && !(vc.expires_abs && at > vc.expires_abs)) db.prepare("UPDATE shop_vouchers SET status='available', used_order=NULL WHERE id=?").run(vc.id); } }
+  const srcOf = o => { const s = parse(o.source, {}); return s.type === 'cash' ? { type: 'cash' } : s.type === 'paylater' ? { type: 'paylater' } : { type: 'acct', acct: acct(o.visitor, s.id) }; };
+  function releaseVoucher(o, at) { for (const h of hooks.release) h(o, at); if (o.voucher_id) { const vc = db.prepare('SELECT * FROM shop_vouchers WHERE id=?').get(o.voucher_id); if (vc && vc.status === 'used' && vc.used_order === o.id && !(vc.expires_abs && at > vc.expires_abs)) db.prepare("UPDATE shop_vouchers SET status='available', used_order=NULL WHERE id=?").run(vc.id); } }
   function restockOrder(o, day) { for (const l of parse(o.lines, [])) { const pr = PROD(l.id); if (pr) restock(o.visitor, pr, l.qty, day); } }
   function voidRewards(oid, reason) { db.prepare("UPDATE shop_rewards SET status='void', reason=? WHERE order_id=? AND status='pending'").run(reason, oid); }
   // Mengembalikan dana ke sumber pembayaran dan mencatat transaksi reversal. Tidak menghapus riwayat pembelian.
@@ -272,6 +275,7 @@ module.exports = function mountCommerce(app, H, F) {
     const out = { adj: null };
     if (o.pay_status !== 'paid' || amount <= 0) return out;
     const src = srcOf(o), day = dayOf(at), sec = secOf(at);
+    if (src.type === 'paylater') { const rt0 = addTx(o.visitor, { kind: 'reversal', status: 'berhasil', amount: amount, method: 'paylater', dst: 'paylater', merchant: o.store, label, reversal_of: o.tx_id, day, sec }); if (hooks.paylaterRefund) hooks.paylaterRefund(o, amount, at, rt0); if (full) db.prepare("UPDATE fin_tx SET status='reversed' WHERE id=?").run(o.tx_id); db.prepare('UPDATE shop_orders SET pay_status=? WHERE id=?').run(full ? 'refunded' : 'partially_refunded', o.id); return out; }
     const rt = addTx(o.visitor, { kind: 'reversal', status: 'berhasil', amount, method: o.method, dst: src.type === 'cash' ? 'cash' : src.acct?.id, merchant: o.store, label, reversal_of: o.tx_id, day, sec });
     if (src.type === 'acct' && !src.acct) throw new Error('Rekening sumber pembayaran tidak ditemukan.');
     out.adj = refund(p, src, amount, 'refund', `Pengembalian dana pesanan ${o.id}`, rt);
@@ -419,6 +423,16 @@ module.exports = function mountCommerce(app, H, F) {
       vouchers: db.prepare("SELECT id, label, kind, value, max_discount AS max, min_spend AS minSpend, store, expires_abs AS expires FROM shop_vouchers WHERE visitor=? AND status='available'").all(p.visitor).filter(x => !(x.expires && clk.abs > x.expires)) });
   });
 
+  // Menyisipkan satu pesanan (jadwal pemenuhan deterministik, peristiwa awal, bonus tertunda). Dipakai checkout toko dan marketplace.
+  function insertOrder(p, q, x) {
+    const v = p.visitor, clk = x.clk, store = q.store, plan = planOrder(q, clk.abs, x.oid);
+    db.prepare("INSERT INTO shop_orders (id, visitor, idem, store, mode, lines, sub, fees, discounts, total, method, method_label, source, pay_status, ful_status, reason, tx_id, voucher_id, loc, ship, placed_abs, eta_abs, eta_orig_abs, done_abs, end_abs, plan, ret, resp, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,'confirmed',NULL,?,?,?,?,?,?,?,NULL,NULL,?,NULL,NULL,?)")
+      .run(x.oid, v, x.idem, store.id, q.mode, JSON.stringify(q.lines), q.sub, JSON.stringify(q.fees), JSON.stringify(q.discounts), q.total, x.method, x.methodLabel, x.srcJson, x.payStatus, x.t, q.voucher?.id || null, JSON.stringify(q.loc), q.ship, clk.abs, plan.etaOrig, plan.etaOrig, JSON.stringify(plan), now());
+    const cod = x.payStatus === 'cod_pending';
+    evIns(x.oid, 'confirmed', clk.abs, stageLbl('confirmed'), `Total ${fmtRp(q.total)}`); evIns(x.oid, cod ? 'cod_selected' : 'payment_confirmed', clk.abs, cod ? 'Metode COD dipilih — bayar saat diterima' : 'Pembayaran dikonfirmasi', cod ? null : x.methodLabel);
+    pendingRewards(p, q, x.oid, clk.abs, `${store.name} · ${x.oid}`);
+    return plan;
+  }
   app.post('/api/shop/checkout', guard((req, res) => {
     const p = need(req, res); if (!p) return; const b = req.body || {}, v = p.visitor;
     if (!idemOk(b.idem)) return fail(res, 'Kunci transaksi tidak valid.');
@@ -447,14 +461,10 @@ module.exports = function mountCommerce(app, H, F) {
       const cod = !!src.cod;
       if (!cod) { const err = debitSource(p, src, q.total, clk, src.kind); if (err) return failRecord(err); }
       for (const l of q.lines) { const pr = PROD(l.id); const n = q.lines.filter(x => x.id === l.id).reduce((s, x) => s + x.qty, 0); if (l === q.lines.find(x => x.id === l.id) && !reserveStock(v, pr, n, clk.day)) throw Object.assign(new Error('stok'), { stock: pr.name }); }
-      const plan = planOrder(q, clk.abs, oid);
       const t = addTx(v, { idem: b.idem, kind: 'belanja', status: cod ? 'pending' : 'berhasil', amount: -q.total, method: cod ? 'cod' : (src.kind || b.method), src: src.type === 'cash' ? 'cash' : src.acct.id, merchant: store.id, label: cod ? label : `${label} · ${src.label}`, reason: cod ? 'Dibayar tunai saat pesanan diterima' : null, day: clk.day, sec: clk.sec });
-      db.prepare("INSERT INTO shop_orders (id, visitor, idem, store, mode, lines, sub, fees, discounts, total, method, method_label, source, pay_status, ful_status, reason, tx_id, voucher_id, loc, ship, placed_abs, eta_abs, eta_orig_abs, done_abs, end_abs, plan, ret, resp, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,'confirmed',NULL,?,?,?,?,?,?,?,NULL,NULL,?,NULL,NULL,?)")
-        .run(oid, v, b.idem, store.id, q.mode, JSON.stringify(q.lines), q.sub, JSON.stringify(q.fees), JSON.stringify(q.discounts), q.total, cod ? 'cod' : (src.kind || b.method), cod ? 'Bayar di tempat (COD)' : src.label, srcJson, cod ? 'cod_pending' : 'paid', t, q.voucher?.id || null, JSON.stringify(q.loc), q.ship, clk.abs, plan.etaOrig, plan.etaOrig, JSON.stringify(plan), now());
-      evIns(oid, 'confirmed', clk.abs, stageLbl('confirmed'), `Total ${fmtRp(q.total)}`); evIns(oid, cod ? 'cod_selected' : 'payment_confirmed', clk.abs, cod ? 'Metode COD dipilih — bayar saat diterima' : 'Pembayaran dikonfirmasi', cod ? null : src.label);
+      insertOrder(p, q, { oid, idem: b.idem, clk, t, method: cod ? 'cod' : (src.kind || b.method), methodLabel: cod ? 'Bayar di tempat (COD)' : src.label, srcJson, payStatus: cod ? 'cod_pending' : 'paid' });
       if (q.voucher) db.prepare("UPDATE shop_vouchers SET status='used', used_order=? WHERE id=? AND status='available'").run(oid, q.voucher.id);
       let adj = null; if (!cod) adj = applyDebit(p, src, q.total, clk, src.kind, store.legacyCat === 'minimarket' ? 'belanja' : store.legacyCat === 'kesehatan' ? 'kesehatan' : store.legacyCat === 'hiburan' ? 'hiburan' : (store.cat === 'sekolah' || store.cat === 'marketplace') ? 'belanja' : 'makan', label, t);
-      pendingRewards(p, q, oid, clk.abs, `${store.name} · ${oid}`);
       notify(v, oid, 'paid', cod ? 'Pesanan dibuat (COD)' : 'Pembayaran berhasil', cod ? `${label}. Bayar tunai saat pesanan diterima.` : `${fmtRp(q.total)} dibayar lewat ${src.label}.`, clk.abs);
       const row = db.prepare('SELECT * FROM shop_orders WHERE id=?').get(oid);
       out = { ...finView(p, clk.abs), ok: true, order: orderOut(row, clk.abs, true), txn: txRow(t), msg: cod ? `Pesanan dibuat. Siapkan uang tunai ${fmtRp(q.total)} saat pesanan tiba.` : `Pembayaran ${fmtRp(q.total)} berhasil. Pesanan dikonfirmasi — barang belum diterima.`, cashAdj: adj ? [adj] : [] };
@@ -620,8 +630,9 @@ module.exports = function mountCommerce(app, H, F) {
       for (const t of C.LOYALTY.tiers) if (before < t.at && before + pts >= t.at && db.prepare('INSERT INTO shop_once (visitor, key) VALUES (?, ?) ON CONFLICT DO NOTHING').run(v, 'tier:' + t.id).changes) { grantVoucher(v, t.voucher, clk.abs, `Loyalitas ${t.label}`); addSystemReward(v, o.id, 'tier-' + t.id, 'voucher', `Naik ke tingkat ${t.label}: ${C.VOUCHERS[t.voucher].label}`, 'Program loyalitas', clk.abs); }
       const sv = stat(v);
       for (const a of C.ACHIEVEMENTS) if (sv[a.stat] >= a.need && db.prepare('INSERT INTO shop_once (visitor, key) VALUES (?, ?) ON CONFLICT DO NOTHING').run(v, 'ach:' + a.id).changes) { addSystemReward(v, o.id, 'ach-' + a.id, 'achievement', `Pencapaian: ${a.label}`, 'Pencapaian belanja', clk.abs); if (a.voucher) { grantVoucher(v, a.voucher, clk.abs, `Pencapaian: ${a.label}`); } give('log', { text: `Pencapaian belanja: ${a.label}.` }); }
+      const extraAdj = []; for (const h of hooks.complete) { const r = h({ p, o, clk, give, lines }); if (r) extraAdj.push(...[].concat(r)); }
       notify(v, o.id, 'done', 'Pesanan selesai', `Pesanan ${o.id} ${o.mode === 'counter' || o.mode === 'pickup' ? 'diambil' : 'diterima'}.`, clk.abs);
-      out = { ...finView(p, clk.abs), ok: true, order: orderOut(db.prepare('SELECT * FROM shop_orders WHERE id=?').get(o.id), clk.abs, true), grants, shopSeq: claimSeq(v), msg: o.mode === 'digital' ? 'Akses dibuka. Bonus belajar sudah dicatat.' : 'Pesanan diterima.', cashAdj: adj ? [adj] : [] };
+      out = { ...finView(p, clk.abs), ok: true, order: orderOut(db.prepare('SELECT * FROM shop_orders WHERE id=?').get(o.id), clk.abs, true), grants, shopSeq: claimSeq(v), msg: o.mode === 'digital' ? 'Akses dibuka. Bonus belajar sudah dicatat.' : 'Pesanan diterima.', cashAdj: [...(adj ? [adj] : []), ...extraAdj] };
     })();
     res.status(out.ok === false ? (out.code || 400) : 200).json(out);
   }));
@@ -642,6 +653,7 @@ module.exports = function mountCommerce(app, H, F) {
   });
 
   return {
+    insertOrder, reserveStock, restock, stockRows, virtualStock, EXT, hooks, orderOut, tickAll, tickOrder, planOrder, notify, evIns, addGrant, dayOf, secOf, absOfClock: clockFrom,
     migrate,
     // Dipanggil PUT /api/game: save yang belum memuat grants terbaru ditolak (mencegah bonus/barang hilang atau ganda).
     checkSeq(visitor, game) {

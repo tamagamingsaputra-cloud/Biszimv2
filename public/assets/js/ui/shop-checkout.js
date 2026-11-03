@@ -49,7 +49,7 @@ export async function openShopCheckout({ store, mode, items, title, onDone }) {
       <div class="dlg-f"><button class="btn ghost" data-close ${locked ? 'disabled' : ''}>Batal</button><button class="btn primary" data-pay ${canPay() ? '' : 'disabled'}>${st.phase === 'proc' ? 'Memproses…' : q ? (st.method === 'cod' ? 'Buat pesanan COD' : `Bayar ${rp(q.total)}`) : 'Memuat…'}</button></div>`;
   }
   body.addEventListener('change', async e => {
-    const n = e.target.name;
+    const n = e.target.name; if (n === 'pin') return; // jangan render ulang saat PIN selesai diketik (akan menghapus isian)
     if (n === 'm') { st.method = e.target.value; const o = opts().find(x => x.key === st.method); st.source = o.sources.length === 1 ? o.sources[0].id : null; await requote(); }
     if (n === 's') st.source = e.target.value;
     if (n === 'ship') { st.ship = e.target.value; await requote(); }
