@@ -494,11 +494,22 @@ module.exports = function mountFinance(app, H) {
     res.json(out);
   }));
 
+  // Pemasukan ke akun (bank/dompet) atau tunai, dicatat di ledger yang sama. Idempoten per kunci; dipanggil DI DALAM transaksi database pemanggil.
+  // Dipakai Seller Center (hasil penjualan), afiliasi (komisi), cashback, dll. Tidak membuat saldo/ledger kedua.
+  function creditIn(p, o) {
+    const v = p.visitor, amount = Math.round(o.amount); if (!(amount > 0)) return { error: 'Nominal tidak valid.' };
+    if (o.idem) { const d = db.prepare('SELECT id FROM fin_tx WHERE visitor=? AND idem=?').get(v, o.idem); if (d) return { duplicate: true, id: d.id }; }
+    let a = o.account && o.account !== 'cash' ? acct(v, o.account) : null; if (a && (a.kind === 'credit' || a.status !== 'aktif')) a = null;
+    const id = addTx(v, { idem: o.idem, kind: o.kind || 'penjualan', status: 'berhasil', amount, method: a ? 'transfer masuk' : 'tunai', dst: a ? a.id : 'cash', merchant: o.merchant || null, label: String(o.label || 'Pemasukan').slice(0, 120), day: o.day, sec: o.sec ?? 0 });
+    if (a) { a.balance += amount; putAcct(a); } else cashApply(p, amount, o.kind || 'penjualan', String(o.label || 'Pemasukan').slice(0, 120), id);
+    return { id, account: a ? a.id : 'cash' };
+  }
+
   // Dipanggil server.cjs: PUT /api/game ditolak bila save tidak memuat penyesuaian tunai terbaru.
   return {
     migrate,
     // Pembantu keuangan untuk modul commerce (satu sumber kebenaran untuk saldo, limit, PIN, dan buku transaksi).
-    core: { resolveMethod, debitSource, applyDebit, refund, checkPin, addTx, setResp, txRow, view, idemOk, findIdem, acct, absOf, openAt, hoursTxt, cashOf, cashApply, guard, st, advance, SEC_DAY, nameOf, fmt },
+    core: { resolveMethod, debitSource, applyDebit, refund, checkPin, addTx, setResp, txRow, view, idemOk, findIdem, acct, absOf, openAt, hoursTxt, cashOf, cashApply, creditIn, guard, st, advance, SEC_DAY, nameOf, fmt },
     checkSeq(visitor, game) {
       const row = db.prepare('SELECT fin_seq FROM players WHERE visitor=?').get(visitor) || {};
       const need = row.fin_seq || 0, have = Number(game.finSeq) || 0;

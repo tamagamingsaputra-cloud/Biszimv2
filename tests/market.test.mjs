@@ -80,6 +80,12 @@ await t('katalog: 12 kategori, pencarian, filter, urutan, halaman, detail', asyn
   const d = await g(S, 'product/' + items[0].id, C); assert.ok(d.item.desc && d.item.variants.length && d.item.weightG && d.item.dim && d.item.etaReg >= 1);
   assert.equal((await g(L, 'product/' + items[0].id, C)).status, 404, 'id listing milik marketplace lain ditolak');
 });
+await t('P9: harga dinamis konsisten (katalog = keranjang = kuotasi) + endpoint pasar', async () => {
+  const ps = await g(S, 'pasar', C); assert.ok(ps.ok && ps.stats.length === 4 && ps.impact && Array.isArray(ps.events) && Array.isArray(ps.feed));
+  assert.ok(Math.abs(ps.stats.reduce((a, x) => a + x.share, 0) - 1) < 0.01, 'pangsa total ~100%');
+  const a = await g(S, 'products', C), b = await g(S, 'products', C); assert.deepEqual(a.items.map(i => i.sale), b.items.map(i => i.sale), 'deterministik');
+  assert.ok(a.items.every(i => i.sale > 0 && i.price >= i.sale && typeof i.priceMult === 'number'));
+});
 await t('perbandingan harga lintas marketplace', async () => {
   const multi = (await g(S, 'products?sort=terlaris', C)).items; let found = null;
   for (const it of multi) { const d = await g(S, 'product/' + it.id, C); if (d.compare.length >= 3) { found = d; break; } } assert.ok(found, 'ada produk dijual di ≥3 marketplace');

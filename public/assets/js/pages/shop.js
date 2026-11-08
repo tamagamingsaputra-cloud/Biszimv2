@@ -2,9 +2,12 @@
 import * as E from '../engine/core.js';
 import * as F from '../engine/finance.js';
 import * as SH from '../engine/shop.js';
+import * as SL from '../engine/seller.js';
 import { mountShell } from '../ui/shell.js';
 import { openShopCheckout } from '../ui/shop-checkout.js';
 import { rp, icon, esc, $, toast, empty, openDialog } from '../ui/ui.js';
+import { trackerHtml, animateTrackers } from '../ui/tracker.js';
+import { productArt } from '../ui/product-art.js';
 
 const page = await mountShell('shop', 'Belanja');
 window.__hashNav = true;
@@ -86,34 +89,42 @@ function keranjang() {
 }
 
 // ——— Pesanan ———
-const OSUB = [['', 'Semua'], ['processing', 'Diproses'], ['pickup', 'Siap diambil'], ['delivery', 'Dalam pengiriman'], ['completed', 'Selesai'], ['cancelled', 'Dibatalkan / Retur']];
+const OSUB = [['', 'Semua'], ['belum_dibayar', 'Belum dibayar'], ['dikemas', 'Dikemas'], ['dikirim', 'Dikirim'], ['diantar', 'Sedang diantar'], ['tiba', 'Tiba di kota tujuan'], ['selesai', 'Selesai'], ['dibatalkan', 'Dibatalkan'], ['retur', 'Pengembalian barang']];
+// Tab pesanan: marketplace dihitung server (order.tabs); pesanan toko lokal memakai pemetaan status yang sama.
+const tabsOf = o => o.tabs || [{ confirmed: 'dikemas', preparing: 'dikemas', processing: 'dikemas', packed: 'dikemas', ready_for_pickup: 'selesai', handed_to_courier: 'dikirim', in_transit: 'dikirim', at_destination: 'tiba', arriving: 'diantar', delivered: 'selesai', completed: 'selesai', cancelled: 'dibatalkan', delivery_failed: 'dibatalkan', return_requested: 'retur', returned: 'retur' }[o.fulStatus] || 'dikemas', ...(o.payStatus === 'cod_pending' && !['completed', 'cancelled', 'delivery_failed', 'returned'].includes(o.fulStatus) ? ['belum_dibayar'] : [])];
+const inTab = (o, k) => !k || tabsOf(o).includes(k);
 function orderCard(o) {
   const pay = PAY[o.payStatus] || [o.payStatus, ''];
   const stg = o.stages.map(s => `<li class="${s.state}"><i></i><span>${esc(s.label)}</span></li>`).join('');
   return `<article class="ord"><div class="ord-h"><div><b>${esc(o.storeName)}</b> <span class="mono muted sm">${esc(o.id)}</span><div class="muted sm">${esc(SH.whenAbs(o.placedAbs))} · ${esc(o.modeLabel)}</div></div><div class="stack" style="gap:4px;align-items:flex-end"><span class="chip ${FUL_CHIP(o.fulStatus)}">${esc(o.fulLabel)}</span><span class="chip ${pay[1]}">${esc(pay[0])}</span></div></div>
-    <div class="sm">${o.lines.map(l => `${l.qty}× ${esc(l.name)}`).join(', ')}</div>
-    ${['completed', 'cancelled', 'delivery_failed', 'returned'].includes(o.fulStatus) ? '' : `<div class="bar" role="progressbar" aria-valuenow="${Math.round(o.progress)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${o.progress}%"></i></div>`}
-    <ol class="stg">${stg}</ol>
+    <div class="row" style="gap:10px;align-items:center">${o.lines[0]?.art ? `<span class="ord-art">${productArt(o.lines[0].art.sub, o.lines[0].art.cat)}</span>` : ''}<div class="sm" style="min-width:0">${o.market ? `<span class="ord-mk" style="background:${o.market.color}1A;color:${o.market.color}">${icon('store')}${esc(o.market.name)}</span> ` : ''}${o.lines.map(l => `${l.qty}× ${esc(l.name)}`).join(', ')}</div></div>
+    ${o.tracking || ['completed', 'cancelled', 'delivery_failed', 'returned'].includes(o.fulStatus) ? '' : `<div class="bar" role="progressbar" aria-valuenow="${Math.round(o.progress)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${o.progress}%"></i></div>`}
+    ${o.tracking ? trackerHtml(o) : `<ol class="stg">${stg}</ol>`}
     ${o.reason ? `<div class="msg ${o.fulStatus === 'cancelled' || o.fulStatus === 'delivery_failed' ? 'error' : 'info'}">${icon('info')}<span>${esc(o.reason)}</span></div>` : ''}
-    ${o.etaChanged ? `<div class="msg info">${icon('clock')}<span>Estimasi tiba berubah: ${esc(SH.whenAbs(o.eta))} (semula ${esc(SH.whenAbs(o.etaOrig))}).</span></div>` : ['completed', 'cancelled', 'delivery_failed', 'returned'].includes(o.fulStatus) || o.mode === 'digital' ? '' : `<div class="muted sm">Estimasi ${esc(SH.whenAbs(o.eta))}</div>`}
+    ${o.etaChanged ? `<div class="msg info">${icon('clock')}<span>Estimasi tiba berubah: ${esc(SH.whenAbs(o.eta))} (semula ${esc(SH.whenAbs(o.etaOrig))}).</span></div>` : ['completed', 'cancelled', 'delivery_failed', 'returned'].includes(o.fulStatus) || o.mode === 'digital' || o.tracking ? '' : `<div class="muted sm">Estimasi ${esc(SH.whenAbs(o.eta))}</div>`}
     <div class="row between" style="margin-top:8px"><b class="num">${rp(o.total)}</b><div class="row" style="gap:6px"><button class="btn sm" data-detail="${o.id}">Detail</button>${o.canClaim ? `<button class="btn sm primary" data-claim="${o.id}">${esc(o.claimLabel)}</button>` : ''}${o.canCancel ? `<button class="btn sm" data-cancel="${o.id}">Batalkan</button>` : ''}</div></div>
     ${o.claimNote ? `<div class="muted sm">${esc(o.claimNote)}</div>` : ''}</article>`;
 }
 function pesanan() {
-  return `<div class="tabs sub" role="tablist">${OSUB.map(([k, l]) => `<button class="tab" aria-selected="${ordFilter === k}" data-ofilter="${k}">${l}</button>`).join('')}</div>
-  <div style="margin-top:12px">${ORD.length ? ORD.map(orderCard).join('') : empty('box', 'Belum ada pesanan', ordFilter ? 'Tidak ada pesanan pada status ini.' : 'Pesanan yang kamu buat akan muncul di sini, dengan status nyata dari server.', '<button class="btn primary" data-go="toko">Mulai belanja</button>')}</div>`;
+  const list = ORD.filter(o => inTab(o, ordFilter)), cnt = k => ORD.filter(o => inTab(o, k)).length;
+  return `<div class="tabs sub ordtabs" role="tablist">${OSUB.map(([k, l]) => `<button class="tab" aria-selected="${ordFilter === k}" data-ofilter="${k}">${l}${k && cnt(k) ? ` <span class="chip">${cnt(k)}</span>` : ''}</button>`).join('')}</div>
+  <div style="margin-top:12px">${list.length ? list.map(orderCard).join('') : empty('box', 'Belum ada pesanan', ordFilter ? 'Tidak ada pesanan pada status ini.' : 'Pesanan yang kamu buat akan muncul di sini, dengan status nyata dari server.', '<button class="btn primary" data-go="toko">Mulai belanja</button>')}</div>`;
 }
 async function detail(id) {
   const r = await SH.order(id); if (!r.ok) { toast(r.error, 'error'); return; } const o = r.order, pay = PAY[o.payStatus] || [o.payStatus, ''];
   const d = openDialog(`<div class="dlg-h"><h2>Pesanan ${esc(o.id)}</h2><button class="icon-btn" data-close aria-label="Tutup">${icon('x')}</button></div><div class="dlg-b" data-det>
     <div class="row between wrap"><b>${esc(o.storeName)}</b><span><span class="chip ${FUL_CHIP(o.fulStatus)}">${esc(o.fulLabel)}</span> <span class="chip ${pay[1]}">${esc(pay[0])}</span></span></div>
-    <table class="table co-lines"><tbody>${o.lines.map(l => `<tr><td>${l.qty}× ${esc(l.name)}</td><td class="num">${rp(l.total)}</td></tr>`).join('')}${o.fees.map(f => `<tr class="muted"><td>${esc(f.label)}</td><td class="num">${rp(f.amount)}</td></tr>`).join('')}${o.discounts.map(f => `<tr class="pos"><td>${esc(f.label)}</td><td class="num">−${rp(-f.amount)}</td></tr>`).join('')}<tr class="co-total"><td><b>Total</b></td><td class="num"><b>${rp(o.total)}</b></td></tr></tbody></table>
-    <p class="muted sm">Dibayar lewat ${esc(o.methodLabel || '—')}. ${o.mode === 'food' || o.mode === 'parcel' ? 'Alamat: rumah karakter.' : ''}</p>
+    ${o.tracking ? trackerHtml(o) : ''}
+    ${o.market ? `<ul class="list ord-info"><li><span class="muted">Marketplace</span><b>${esc(o.market.name)}</b></li><li><span class="muted">Toko</span><b>${esc(o.seller?.name || o.storeName)}${o.seller?.city ? ' · ' + esc(o.seller.city) : ''}</b></li><li><span class="muted">Ekspedisi</span><b>${esc(o.courier.name)}</b></li>${o.vouchers?.length ? `<li><span class="muted">Voucher</span><b>${o.vouchers.map(esc).join(', ')}</b></li>` : ''}${o.cashback ? `<li><span class="muted">Cashback</span><b>${rp(o.cashback)}</b></li>` : ''}</ul>` : ''}
+    <table class="table co-lines"><tbody>${o.lines.map(l => `<tr><td><div class="row" style="gap:8px;align-items:center">${l.art ? `<span class="ord-art" style="width:36px;height:36px">${productArt(l.art.sub, l.art.cat)}</span>` : ''}<span>${l.qty}× ${esc(l.name)}${l.qty > 1 || l.unit ? `<div class="muted sm">${rp(l.unit || l.price)} / unit</div>` : ''}</span></div></td><td class="num">${rp(l.total)}</td></tr>`).join('')}${o.fees.map(f => `<tr class="muted"><td>${esc(f.label)}</td><td class="num">${rp(f.amount)}</td></tr>`).join('')}${o.discounts.map(f => `<tr class="pos"><td>${esc(f.label)}</td><td class="num">−${rp(-f.amount)}</td></tr>`).join('')}<tr class="co-total"><td><b>Total</b></td><td class="num"><b>${rp(o.total)}</b></td></tr></tbody></table>
+    <p class="muted sm">Dibayar lewat ${esc(o.methodLabel || "—")} · ${esc(SH.whenAbs(o.placedAbs))}. ${o.mode === 'food' || o.mode === 'parcel' ? 'Alamat: rumah karakter.' : ''}</p>
     <h3 style="margin:12px 0 6px;font-size:13px">Riwayat status</h3><ol class="tl">${o.events.map(e => `<li><span class="mono sm muted">${esc(SH.whenAbs(e.at))}</span> <b>${esc(e.label)}</b>${e.detail ? `<div class="muted sm">${esc(e.detail)}</div>` : ''}</li>`).join('')}</ol>
     ${o.rewards?.length ? `<h3 style="margin:12px 0 6px;font-size:13px">Bonus pesanan</h3><ul class="list">${o.rewards.map(w => `<li><span style="flex:1">${esc(w.label)}${w.reason ? `<div class="muted sm">${esc(w.reason)}</div>` : ''}</span><span class="chip ${rewardLabel[w.status]?.[1] || ''}">${esc(rewardLabel[w.status]?.[0] || w.status)}</span></li>`).join('')}</ul>` : ''}
-    ${o.canReturn ? `<fieldset class="co-methods"><legend>Ajukan retur</legend>${[['rusak', 'Barang rusak/cacat (refund penuh)'], ['tidak_sesuai', 'Tidak sesuai pesanan (refund penuh)'], ['berubah_pikiran', 'Berubah pikiran (dipotong ongkir, biaya layanan, dan Rp 8.000)']].map(([k, l], i) => `<label class="co-m"><input type="radio" name="rr" value="${k}" ${i === 0 ? 'checked' : ''}><span><b>${l}</b></span></label>`).join('')}<button class="btn" data-return="${o.id}">Ajukan retur</button></fieldset>` : o.returnWhy && o.mode === 'parcel' && o.fulStatus === 'delivered' ? `<p class="muted sm">${esc(o.returnWhy)}</p>` : ''}
+    ${o.canReturn ? `<fieldset class="co-methods"><legend>Ajukan retur</legend>${(o.returnReasons?.length ? o.returnReasons.map(r => [r.id, r.label + (r.full ? ' (refund penuh)' : ' (dipotong ongkir, biaya layanan, dan Rp 8.000)')]) : [['rusak', 'Barang rusak/cacat (refund penuh)'], ['tidak_sesuai', 'Tidak sesuai pesanan (refund penuh)'], ['berubah_pikiran', 'Berubah pikiran (dipotong ongkir, biaya layanan, dan Rp 8.000)']]).map(([k, l], i) => `<label class="co-m"><input type="radio" name="rr" value="${k}" ${i === 0 ? 'checked' : ''}><span><b>${l}</b></span></label>`).join('')}<button class="btn" data-return="${o.id}">Ajukan retur</button></fieldset>` : o.returnWhy && o.mode === 'parcel' && o.fulStatus === 'delivered' ? `<p class="muted sm">${esc(o.returnWhy)}</p>` : ''}
+    ${o.retInfo ? `<div class="msg ${o.retInfo.rejected ? 'error' : 'warn'}">${icon('info')}<span><b>Pengembalian:</b> ${esc(o.retInfo.label || '')}${o.retInfo.rejected ? ` — ditolak setelah pemeriksaan${o.retInfo.rejectReason ? ': ' + esc(o.retInfo.rejectReason) : ''}` : o.retInfo.amount ? ` — dana ${rp(o.retInfo.amount)} dikembalikan setelah barang diperiksa` : ''}</span></div>` : ''}
+    ${o.review ? `<div class="msg info">${icon('star')}<span><b>Ulasanmu:</b> ${'★'.repeat(o.review.stars)}${'☆'.repeat(5 - o.review.stars)} ${esc(o.review.text || '')}</span></div>` : ''}${o.canReview ? `<fieldset class="co-methods" id="rv-box"><legend>Beri ulasan</legend><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr))">${[['stars', 'Keseluruhan'], ['quality', 'Kualitas'], ['ship', 'Pengiriman'], ['service', 'Layanan']].map(([k, l]) => `<label class="field"><span>${l}</span><select class="input" name="rv-${k}">${[5, 4, 3, 2, 1].map(n => `<option value="${n}">${'★'.repeat(n)}</option>`).join('')}</select></label>`).join('')}</div><label class="field"><span>Komentar</span><textarea class="input" name="rv-text" rows="2" maxlength="400" style="height:auto;padding:8px 10px" placeholder="Ceritakan pengalamanmu…"></textarea></label><label class="field"><span>Foto (opsional)</span><input class="input" type="file" name="rv-photo" accept="image/png,image/jpeg,image/webp" style="padding-top:6px"></label><button class="btn primary" data-review="${o.id}">Kirim ulasan</button></fieldset>` : ''}
     <div class="dlg-f">${o.canClaim ? `<button class="btn primary" data-claim="${o.id}">${esc(o.claimLabel)}</button>` : ''}${o.canCancel ? `<button class="btn" data-cancel="${o.id}">Batalkan pesanan</button>` : o.cancelWhy && !['cancelled', 'completed'].includes(o.fulStatus) ? `<span class="muted sm" style="flex:1">${esc(o.cancelWhy)}</span>` : ''}<button class="btn ghost" data-close>Tutup</button></div></div>`, {});
-  d.addEventListener('click', async e => { const b = e.target.closest('[data-return]'); if (!b) return; const reason = d.querySelector('[name=rr]:checked')?.value; b.disabled = true; const x = await SH.requestReturn(b.dataset.return, reason); toast(x.ok ? x.msg : x.error, x.ok ? 'ok' : 'error'); d.close(); await refreshAll(); });
+  animateTrackers(d); d.addEventListener('click', async e => { const rv = e.target.closest('[data-review]'); if (rv) { const g = n => d.querySelector(`[name=rv-${n}]`), body = { order: rv.dataset.review, stars: g('stars').value, quality: g('quality').value, ship: g('ship').value, service: g('service').value, text: g('text').value, idem: SL.newIdem('rv') }; const f = g('photo').files[0]; if (f) { const im = await SL.readImage(f); if (im.error) return toast(im.error, 'error'); body.photo = im.data; } rv.disabled = true; const x = await SL.money('/api/mp/review', body); toast(x.ok ? x.msg : x.error, x.ok ? 'ok' : 'error'); if (x.ok) { d.close(); await refreshAll(); } else rv.disabled = false; return; } const b = e.target.closest('[data-return]'); if (!b) return; const reason = d.querySelector('[name=rr]:checked')?.value; b.disabled = true; const x = await SH.requestReturn(b.dataset.return, reason); toast(x.ok ? x.msg : x.error, x.ok ? 'ok' : 'error'); d.close(); await refreshAll(); });
 }
 
 // ——— Reward & Notifikasi ———
@@ -129,15 +140,15 @@ function reward() {
 }
 function notif() {
   if (!NF) return '<div class="panel-b subtle">Memuat…</div>';
-  return `<div class="row between" style="margin-bottom:8px"><span class="muted">${NF.unread} belum dibaca</span><button class="btn sm" data-readall>Tandai semua dibaca</button></div>${NF.notifs.length ? `<ul class="list">${NF.notifs.map(n => `<li class="${n.read ? '' : 'unread'}"><span class="ic">${icon('bell')}</span><span style="flex:1"><b>${esc(n.title)}</b><div class="muted sm">${esc(n.body)}</div></span><span class="muted sm">${esc(SH.whenAbs(n.at))}</span></li>`).join('')}</ul>` : empty('bell', 'Belum ada notifikasi', 'Notifikasi muncul saat status pesananmu berubah.')}`;
+  return `<div class="row between" style="margin-bottom:8px"><span class="muted">${NF.unread} belum dibaca</span><button class="btn sm" data-readall>Tandai semua dibaca</button></div>${NF.notifs.length ? `<ul class="list">${NF.notifs.map(n => `<li class="${n.read ? '' : 'unread'}"><span class="ic">${icon('bell')}</span><span style="flex:1"><b>${esc(n.title)}</b><div class="muted sm">${esc(n.body)}${n.kind === 'rl_msg' ? ' <a href="social.html">Buka Sosial</a>' : ''}${n.kind === 'flash' || n.kind === 'voucher' ? ' <a href="marketplace.html">Buka Marketplace</a>' : ''}${n.kind === 'pl-due' || n.kind === 'pl-late' ? ' <a href="marketplace.html">Buka PayLater</a>' : ''}</div></span><span class="muted sm">${esc(SH.whenAbs(n.at))}</span></li>`).join('')}</ul>` : empty('bell', 'Belum ada notifikasi', 'Notifikasi muncul saat status pesananmu berubah.')}`;
 }
 
 function render() {
   tabs(); $('#sum').innerHTML = summaryHtml();
-  $('#body').innerHTML = { toko, keranjang, pesanan, reward, notif }[tab]();
+  $('#body').innerHTML = { toko, keranjang, pesanan, reward, notif }[tab](); animateTrackers($('#body'));
 }
 async function refreshAll() {
-  const [s, o, r, n] = await Promise.all([SH.summary(), SH.orders(ordFilter), tab === 'reward' ? SH.rewards() : null, SH.notifs()]);
+  const [s, o, r, n] = await Promise.all([SH.summary(), SH.orders(''), tab === 'reward' ? SH.rewards() : null, SH.notifs()]);
   if (s.ok) { SUM = s; for (const f of s.fresh || []) toast(`${f.title}: ${f.body}`, 'ok'); } if (o.ok) ORD = o.orders; if (r?.ok) REW = r; if (n.ok) NF = n;
   await SH.syncGrants(); await SH.loadCatalog(true); if (idle()) render();
 }
@@ -162,7 +173,7 @@ page.addEventListener('click', async e => {
     await openShopCheckout({ store, mode: eff, items: g.lines.map(l => ({ id: l.id, variant: l.variant, qty: l.qty })), title: `Checkout ${STORE(store).name}`, onDone: () => { cart = cart.filter(l => !g.lines.some(x => x.id === l.id && x.variant === l.variant)); saveCart(); go('pesanan'); } });
     return;
   }
-  if (t.dataset.ofilter !== undefined) { ordFilter = t.dataset.ofilter; const o = await SH.orders(ordFilter); if (o.ok) ORD = o.orders; return render(); }
+  if (t.dataset.ofilter !== undefined) { ordFilter = t.dataset.ofilter; return render(); }
   if (t.dataset.detail) return detail(t.dataset.detail);
   if (t.dataset.claim || t.dataset.cancel) {
     const claim = !!t.dataset.claim, id = t.dataset.claim || t.dataset.cancel; t.disabled = true;

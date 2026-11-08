@@ -1,4 +1,4 @@
-// KEHIDUPAN — kebutuhan karakter, makan & minum, istirahat & kebersihan, kesehatan, pesan antar, belanja, transport.
+// KEHIDUPAN — kebutuhan karakter, makan & minum, istirahat & kebersihan, kesehatan, inventaris, transport. (Belanja & pesan antar ada di Belanja & Order Center.)
 // Nilai kebutuhan & aturan berasal dari engine/needs.js + data/needs-rules.js. Harga, jam buka, dan metode bayar dari server.
 import * as E from '../engine/core.js';
 import * as F from '../engine/finance.js';
@@ -13,8 +13,12 @@ const page = await mountShell('life', 'Kehidupan');
 window.__hashNav = true;
 const NE = E.NE;
 if (new URLSearchParams(location.search).has('visitor') && ['localhost', '127.0.0.1'].includes(location.hostname)) window.__bizsimQA = { E, F, NE };
-const TABS = [['kebutuhan', 'Kebutuhan', 'life'], ['makan', 'Makan & Minum', 'food'], ['istirahat', 'Istirahat & Kebersihan', 'bed'], ['kesehatan', 'Kesehatan', 'heart'], ['antar', 'Pesan Antar', 'truck'], ['belanja', 'Belanja', 'cart'], ['transport', 'Transport', 'bus']];
-let tab = TABS.some(t => t[0] === location.hash.slice(1)) ? location.hash.slice(1) : 'kebutuhan';
+const TABS = [['kebutuhan', 'Kebutuhan', 'life'], ['makan', 'Makan & Minum', 'food'], ['istirahat', 'Istirahat & Kebersihan', 'bed'], ['kesehatan', 'Kesehatan', 'heart'], ['inventaris', 'Inventaris', 'box'], ['transport', 'Transport', 'bus']];
+// Tab lama dipindah: Pesan Antar & Belanja kini hanya di Belanja & Order Center / Marketplace (tidak ada duplikat).
+const LEGACY = { antar: 'shop.html#toko', belanja: 'inventaris' };
+if (LEGACY[location.hash.slice(1)]?.includes('.html')) location.replace(LEGACY[location.hash.slice(1)] + (location.search ? '' : ''));
+const normHash = h => LEGACY[h] && !LEGACY[h].includes('.html') ? LEGACY[h] : h;
+let tab = TABS.some(t => t[0] === normHash(location.hash.slice(1))) ? normHash(location.hash.slice(1)) : 'kebutuhan';
 
 page.innerHTML = `<div class="mod-band"><span class="ti">${icon('life')}</span><div><h2>Kehidupan sehari-hari</h2><p>Kebutuhan karakter berubah setiap 30 menit game sesuai aktivitas. Makan, minum, mandi, dan istirahat memakan waktu game dan memengaruhi performa sekolah, kerja, dan produksi konten.</p></div><div class="right" id="state"></div></div>
 <div class="life-layout"><aside class="life-side"><section class="panel"><div class="panel-h"><h2>Kondisi sekarang</h2></div><div class="panel-b"><div class="needs-col" id="needs"></div></div></section><section class="panel" id="actv"></section></aside>
@@ -55,7 +59,7 @@ function onlineReason() { if (E.liveActive()) return 'Karakter sedang live.'; co
 async function buy(id) {
   const it = F.item(id), m = F.merchant(it.merchant), travel = m.travelMin || 0;
   await openCheckout({ merchant: m.id, items: [{ id, qty: 1 }], title: `${m.name} — ${it.name}`, onSuccess: r => {
-    if (r.order) { toast(m.id === 'pasarku' ? 'Pesanan dibuat. Pantau di tab Belanja.' : 'Pesanan dibuat. Pantau di tab Pesan Antar.'); return; }
+    if (r.order) { toast('Pesanan dibuat. Pantau di Order Center (Belanja).'); return; }
     if (it.stock) { NE.addInventory(it, 1); E.save(); toast(`${it.name} masuk inventori.`); return; }
     const res = NE.start({ kind: 'beli', label: `${it.name} di ${m.name}`, min: (it.min || 0) + travel * 2, fx: it.fx, source: r.txn?.id });
     if (res.ok) toast(res.msg);
@@ -102,14 +106,9 @@ const VIEW = {
     <div class="shop" style="margin-top:14px">${merchantCard('klinik')}${merchantCard('apotek')}</div>
     <div style="margin-top:14px">${inventoryPanel(v => v.id === 'vitamin')}</div>`;
   },
-  antar() {
-    const orders = (F.V?.orders || []).filter(o => o.merchant === 'antarrasa');
-    return `<div class="msg info" style="margin-bottom:12px">${icon('cart')}<span>Pesan makanan antar dan belanja online kini lewat <a href="shop.html#toko"><b>Belanja &amp; Order Center</b></a> (toko lokal) dan <a href="marketplace.html"><b>Marketplace</b></a> — status pesanan, pelacakan, retur/refund, dan reward.</span></div>${ordersPanel(orders, 'Pesanan makanan lama')}
-    <p class="subtle">Harga + ongkir Rp ${F.CAT.DELIVERY.deliveryFee.toLocaleString('id-ID')} + biaya layanan Rp ${F.CAT.DELIVERY.serviceFee.toLocaleString('id-ID')} dihitung server. Pesanan bisa dibatalkan selama status "Diproses" (dana dikembalikan, status transaksi Reversed).</p>`;
-  },
-  belanja() {
-    const orders = (F.V?.orders || []).filter(o => o.merchant === 'pasarku');
-    return `<div class="msg info" style="margin-bottom:12px">${icon('cart')}<span>Belanja online dan offline lengkap (keranjang, voucher, retur, reward) ada di <a href="shop.html#toko"><b>Belanja &amp; Order Center</b></a> dan <a href="marketplace.html"><b>Marketplace</b></a> (Shopindo, LazaMall, Tokomart, BelanjaPlus).</span></div>${ordersPanel(orders, 'Pesanan Pasarku lama')}<div style="margin-top:14px">${inventoryPanel()}</div>`;
+  inventaris() {
+    const orders = (F.V?.orders || []).filter(o => ['pasarku', 'antarrasa'].includes(o.merchant)); // pesanan lama sebelum Order Center
+    return `<div class="msg info" style="margin-bottom:12px">${icon('cart')}<span>Barang yang kamu beli masuk ke inventori setelah <b>diterima</b>. Belanja, pesan antar, retur, dan reward ada di <a href="shop.html#toko"><b>Belanja &amp; Order Center</b></a> dan <a href="marketplace.html"><b>Marketplace</b></a>.</span></div>${orders.length ? ordersPanel(orders, 'Pesanan lama (sebelum Order Center)') : ''}<div style="margin-top:14px">${inventoryPanel()}</div>`;
   },
   transport() {
     const cur = E.S.life.commute, ad = F.V?.autodebit?.jalanyuk, gw = F.accounts('wallet').find(a => a.provider === 'gojalan');
@@ -133,7 +132,7 @@ function ordersPanel(orders, title) {
 
 function render() { renderTabs(); paintSide(); if (!F.CAT) { $('#body').innerHTML = `<section class="panel">${empty('info', 'Katalog belum termuat', F.status.error || 'Server keuangan tidak merespons.')}</section>`; return; } $('#body').innerHTML = VIEW[tab](); }
 $('#tabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) { tab = b.dataset.tab; history.replaceState(null, '', '#' + tab); render(); } });
-window.addEventListener('hashchange', () => { const h = location.hash.slice(1); if (TABS.some(t => t[0] === h) && h !== tab) { tab = h; render(); } });
+window.addEventListener('hashchange', () => { const h = normHash(location.hash.slice(1)); if (TABS.some(t => t[0] === h) && h !== tab) { tab = h; render(); } });
 const res = r => { if (r.ok) toast(r.msg || 'Berhasil.'); else toast(r.error, 'error'); render(); return r; };
 page.addEventListener('click', async e => {
   const t = e.target.closest('button'); if (!t || t.disabled) return;

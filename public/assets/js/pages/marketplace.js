@@ -3,12 +3,13 @@
 import * as E from '../engine/core.js';
 import * as F from '../engine/finance.js';
 import * as MP from '../engine/mp.js';
+import * as SL from '../engine/seller.js';
 import { mountShell } from '../ui/shell.js';
 import { openMpCheckout } from '../ui/mp-checkout.js';
 import { productArt, catArt, mpLogo } from '../ui/product-art.js';
 import { rp, rpShort, icon, esc, $, toast, empty, openDialog } from '../ui/ui.js';
 
-const page = await mountShell('marketplace', 'Marketplace');
+const page = await mountShell('shop', 'Marketplace');
 window.__hashNav = true;
 if (new URLSearchParams(location.search).has('visitor') && ['localhost', '127.0.0.1'].includes(location.hostname)) window.__bizsimQA = { E, F, MP };
 await F.init().catch(() => {});
@@ -86,7 +87,7 @@ async function loadLauncher() { const r = await MP.launcher(); if (r.ok) LA = r;
 
 // ——— kerangka marketplace (header merek + tab) ———
 function shell(m, tab, title) {
-  const tabs = [['beranda', 'Beranda', 'home'], ['cari', 'Jelajah', 'search'], ['voucher', 'Voucher', 'ticket'], ['wishlist', 'Wishlist', 'heart'], ...(m.payLater ? [['paylater', 'PayLater', 'repeat']] : []), ['akun', 'Akun', 'user']];
+  const tabs = [['beranda', 'Beranda', 'home'], ['cari', 'Jelajah', 'search'], ['voucher', 'Voucher', 'ticket'], ['wishlist', 'Wishlist', 'heart'], ['pasar', 'Pasar', 'chart'], ...(m.payLater ? [['paylater', 'PayLater', 'repeat']] : []), ['akun', 'Akun', 'user']];
   root.innerHTML = `<div class="mod-band"><span class="ti">${mpLogo(m, 40)}</span><div><h2>${esc(m.name)}</h2><p>${esc(m.tagline)}</p></div><div class="right"><a class="btn" href="#">${icon('chevL')} Marketplace lain</a><a class="btn" href="shop.html#pesanan">${icon('box')} Pesanan</a></div></div>
   <div class="mp-bar"><form id="sf" role="search"><input class="input" name="q" type="search" placeholder="Cari produk, merek, kategori" aria-label="Cari produk" value="${esc(route().q.get('q') || '')}"><button class="btn" type="submit" aria-label="Cari">${icon('search')}</button></form>
     <a class="icon-btn" href="#${m.id}/keranjang" aria-label="Keranjang">${icon('cart')}${CART.count ? `<span class="mp-badge">${CART.count}</span>` : ''}</a></div>
@@ -128,6 +129,22 @@ async function viewHome(m) {
   bindCards($('#mp-body'), m);
 }
 
+
+// ——— PASAR & EVENT (P9): kompetisi antar marketplace, event aktif, aktivitas NPC ———
+async function viewMarketInfo(m) {
+  shell(m, 'pasar'); busy(); const r = await MP.rd(m.id, 'pasar'); if (authGuard(r, m.id)) return;
+  if (!r.ok) { $('#mp-body').innerHTML = errBox(r); return; }
+  const mx = Math.max(...r.stats.map(x => x.share)), im = r.impact, fmtN = n => n >= 1e6 ? (n / 1e6).toLocaleString('id-ID', { maximumFractionDigits: 1 }) + ' jt' : n.toLocaleString('id-ID');
+  const evs = r.events.length ? r.events.map(e => `<div class="row-i"><span class="ichip">${icon(e.kind === 'flash' ? 'bolt' : 'sparkle')}</span><div><b>${esc(e.label)}</b><div class="muted sm">Diskon sekitar ${Math.round(e.disc * 100)}% · permintaan ×${e.demand}${e.kind === 'flash' ? (e.live ? ' · sedang berlangsung (12:00–14:00)' : ' · jendela 12:00–14:00') : ''}</div></div></div>`).join('') : '<p class="muted">Tidak ada event pada hari ini.</p>';
+  $('#mp-body').innerHTML = `<p class="mp-note">${icon('info')}<span>${esc(r.note)}</span></p>
+    <div class="sec-h"><h3>Event hari ini</h3></div><div class="card pad stack">${evs}</div>
+    <div class="sec-h"><h3>Kompetisi marketplace</h3></div><div class="stack">${r.stats.map(x => `<div class="card pad"><div style="display:flex;align-items:center;gap:8px;justify-content:space-between"><b>${esc(x.name)}${x.id === m.id ? ' <span class="chip">Kamu di sini</span>' : ''}</b><span class="mono">${(x.share * 100).toFixed(1)}%</span></div>
+      <div class="bar" role="img" aria-label="Pangsa ${(x.share * 100).toFixed(1)} persen"><i style="width:${Math.round(x.share / mx * 100)}%;background:${esc(x.color || 'var(--accent)')}"></i></div>
+      <div class="muted sm">${fmtN(x.users)} pengguna · ${fmtN(x.sellers)} penjual · ${fmtN(x.tx)} transaksi/hari · layanan ${x.service}/100</div></div>`).join('')}</div>
+    <div class="sec-h"><h3>Dampak ke dunia</h3></div><div class="card pad"><div class="kv"><span>Aktivitas pasar</span><b>${im.activity}× baseline</b></div><div class="kv"><span>Pekerjaan kurir</span><b>${fmtN(im.courierJobs)}/hari</b></div><div class="kv"><span>Penjual aktif</span><b>${fmtN(im.sellerJobs)}</b></div><div class="kv"><span>Daya beli</span><b>${im.purchasingPower}×</b></div><div class="kv"><span>Inflasi</span><b>${im.inflation}</b></div></div>
+    <div class="sec-h"><h3>Kabar pasar</h3></div><div class="card pad stack">${r.feed.length ? r.feed.map(f => `<div class="row-i"><span class="ichip">${icon('store')}</span><div><b>${esc(f.seller || f.name || '')}</b> ${esc(f.text || f.action || '')}<div class="muted sm">${esc(f.marketName || f.market || '')}</div></div></div>`).join('') : '<p class="muted">Belum ada kabar.</p>'}</div>`;
+}
+
 // ——— JELAJAH / KATALOG ———
 async function viewCatalog(m) {
   const { q } = route(); shell(m, 'cari');
@@ -163,6 +180,18 @@ async function viewCatalog(m) {
 }
 
 // ——— DETAIL PRODUK ———
+
+// ——— chat dengan penjual (P8): pesan bebas atau pilihan cepat; balasan penjual katalog dibuat server dari data nyata ———
+async function openChat(it) {
+  const st = await SL.act('/api/chat/start', { listing: it.id }); if (!st.ok) { if (!authGuard(st, MID())) toast(st.error, 'error'); return; }
+  const d = openDialog(`<div class="dlg-h"><h3>Chat · ${esc(it.seller.name)}</h3></div><div class="dlg-b"><div class="chat-log" id="cl"></div><div id="cq" class="row" style="gap:6px;flex-wrap:wrap;margin:10px 0"></div><form class="row" id="cf" style="gap:6px"><input class="input" name="t" maxlength="300" placeholder="Tulis pesan…" autocomplete="off"><button class="btn primary">Kirim</button></form></div><div class="dlg-f"><button class="btn" data-close>Tutup</button></div>`);
+  const load = async () => { const r = await SL.rd('/api/chat/' + st.id); if (!r.ok) return; $('#cl', d).innerHTML = r.messages.map(m => `<div class="chat-msg ${m.who === 'me' ? 'me' : 'them'}"><span>${esc(m.text)}</span></div>`).join(''); $('#cq', d).innerHTML = r.quick.map(q => `<button class="btn sm" data-k="${q.k}">${esc(q.l)}</button>`).join(''); $('#cl', d).scrollTop = 1e6; };
+  const send = async b => { const r = await SL.act('/api/chat/' + st.id + '/send', { ...b, idem: SL.newIdem('ch') }); if (!r.ok) toast(r.error, 'error'); await load(); };
+  $('#cf', d).addEventListener('submit', e => { e.preventDefault(); const t = e.target.t.value.trim(); if (t) { e.target.t.value = ''; send({ text: t }); } });
+  $('#cq', d).addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (b) send({ quick: b.dataset.k }); });
+  await load();
+}
+
 async function viewProduct(m, id) {
   shell(m, 'cari'); busy(); const r = await MP.rd(m.id, `product/${encodeURIComponent(id)}`); if (authGuard(r, m.id)) return;
   if (!r.ok) { $('#mp-body').innerHTML = `${errBox(r)}<p><a class="btn" href="#${m.id}/cari">${icon('chevL')} Kembali ke katalog</a></p>`; return; }
@@ -176,7 +205,7 @@ async function viewProduct(m, id) {
         <div class="price" style="font-size:22px">${rp(unit)}${it.disc ? `<s>${rp(it.price + v.price)}</s>` : ''}</div>
         ${it.variants.length > 1 ? `<div><div class="subtle" style="margin-bottom:4px">Variasi</div><div class="opt-row">${it.variants.map(x => `<button class="chip" data-var="${x.id}" aria-pressed="${x.id === vr}">${esc(x.label)}${x.price ? ` (+${rp(x.price)})` : ''}</button>`).join('')}</div></div>` : ''}
         <div class="row" style="gap:12px;flex-wrap:wrap"><div class="qty"><button data-q="-1" aria-label="Kurangi" ${qty <= 1 ? 'disabled' : ''}>${icon('minus')}</button><b aria-live="polite">${qty}</b><button data-q="1" aria-label="Tambah" ${qty >= Math.min(it.stock, 20) ? 'disabled' : ''}>${icon('plus')}</button></div><span class="subtle">${it.stock <= 0 ? 'Stok habis' : `Stok ${it.stock}`}</span></div>
-        <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn primary" data-add ${it.stock <= 0 ? 'disabled' : ''}>${icon('cart')} Tambah ke keranjang</button><button class="btn" data-buy ${it.stock <= 0 ? 'disabled' : ''}>Beli sekarang</button><button class="btn ghost" data-w aria-pressed="${it.wish}">${icon(it.wish ? 'heartFill' : 'heart')} Wishlist</button></div>
+        <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn primary" data-add ${it.stock <= 0 ? 'disabled' : ''}>${icon('cart')} Tambah ke keranjang</button><button class="btn" data-buy ${it.stock <= 0 ? 'disabled' : ''}>Beli sekarang</button><button class="btn" data-chat>${icon('chat')} Chat penjual</button><button class="btn ghost" data-w aria-pressed="${it.wish}">${icon(it.wish ? 'heartFill' : 'heart')} Wishlist</button></div>
         <div id="pd-msg"></div>
         <table class="table"><tbody><tr><th>Penjual</th><td>${esc(it.seller.name)}${it.seller.official ? ` <span class="chip">${icon('shield', 'width="11" height="11"')} Resmi</span>` : ''} · ${esc(it.seller.city)} · rating ${it.seller.rating.toLocaleString('id-ID', { minimumFractionDigits: 1 })}</td></tr>
         <tr><th>Estimasi tiba</th><td>Reguler ${it.etaReg} hari · Ekspres ${it.etaEks} hari (${it.km} km dari penjual)</td></tr><tr><th>Berat</th><td>${it.weightG.toLocaleString('id-ID')} g</td></tr><tr><th>Dimensi</th><td>${esc(it.dim)} cm</td></tr>${it.warranty ? `<tr><th>Garansi</th><td>${esc(it.warranty)}</td></tr>` : ''}${it.minAge ? `<tr><th>Usia</th><td>${it.minAge}+</td></tr>` : ''}</tbody></table>
@@ -187,6 +216,7 @@ async function viewProduct(m, id) {
     $('#mp-body').querySelectorAll('[data-var]').forEach(b => b.onclick = () => { vr = b.dataset.var; draw(); });
     $('#mp-body').querySelectorAll('[data-q]').forEach(b => b.onclick = () => { qty = Math.max(1, Math.min(Math.min(it.stock, 20), qty + Number(b.dataset.q))); draw(); });
     const add = async () => { const rr = await MP.act(m.id, 'cart', { op: 'add', listing: it.id, variant: vr, qty }); if (!rr.ok) { if (!authGuard(rr, m.id)) $('#pd-msg').innerHTML = errBox(rr); return false; } CART = rr; root.querySelector('.mp-bar .icon-btn').innerHTML = `${icon('cart')}<span class="mp-badge">${rr.count}</span>`; return true; };
+    $('[data-chat]').onclick = () => openChat(it);
     $('[data-add]').onclick = async e => { e.target.closest('button').disabled = true; if (await add()) toast('Masuk keranjang.'); draw(); };
     $('[data-buy]').onclick = async () => { if (await add()) { const rr = await MP.act(m.id, 'cart', { op: 'selectAll', on: false }); await MP.act(m.id, 'cart', { op: 'select', listing: it.id, variant: vr, on: true }); go(`${m.id}/keranjang`); } };
     $('[data-w]').onclick = async () => { const on = $('[data-w]').getAttribute('aria-pressed') !== 'true'; const rr = await MP.act(m.id, 'wishlist', { listing: it.id, on }); if (rr.ok) { it.wish = on; toast(on ? 'Ditambahkan ke wishlist.' : 'Dihapus dari wishlist.'); draw(); } };
@@ -342,6 +372,7 @@ async function render() {
       case 'keranjang': return await viewCart(mm);
       case 'voucher': return rt.a ? await viewVoucherDetail(mm, rt.a) : await viewVouchers(mm);
       case 'wishlist': return await viewWishlist(mm);
+      case 'pasar': return await viewMarketInfo(mm);
       case 'akun': return await viewAccount(mm);
       case 'paylater': return mm.payLater ? await viewPayLater(mm) : go(`${mm.id}/beranda`);
       default: return go(`${mm.id}/beranda`);

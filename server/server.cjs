@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS edu_ledger (id INTEGER PRIMARY KEY AUTOINCREMENT, vis
   for (const col of ['clock_abs REAL', 'game_key TEXT', 'fin_seq INTEGER DEFAULT 0']) { try { db.exec(`ALTER TABLE players ADD COLUMN ${col}`); } catch { /* kolom sudah ada */ } }
   FINANCE.migrate();
   COMMERCE.migrate();
-  MARKET.migrate();
+  MARKET.migrate(); SELLER.migrate(); SOCIAL.migrate(); RELATION.migrate();
   for (const ix of [
     'CREATE INDEX IF NOT EXISTS ix_sessions_visitor ON exam_sessions (visitor)',
     'CREATE INDEX IF NOT EXISTS ix_results_visitor ON exam_results (visitor, char_id, created_at)',
@@ -340,6 +340,9 @@ const eduInfo = p => { const e = p.edu; if (!e || e.status !== 'enrolled') retur
 const eduMastery = (v, subjectId, amount) => { const p = getPlayer(v); const e = p && p.edu; if (!e || e.status !== 'enrolled' || e.mastery[subjectId] == null) return null; e.mastery[subjectId] = Math.min(100, (e.mastery[subjectId] || 0) + amount); savePlayer(p); return e.mastery[subjectId]; };
 COMMERCE = require('./commerce.cjs')(app, { db, tx, vid, rid, now, fail, getPlayer, ageAt, eduInfo, eduMastery }, FINANCE.core);
 MARKET = require('./market.cjs')(app, { db, tx, vid, rid, now, fail, getPlayer, ageAt }, FINANCE.core, COMMERCE);
+const SELLER = require('./seller.cjs')(app, { db, tx, vid, rid, now, fail, getPlayer, ageAt }, FINANCE.core, COMMERCE);
+const SOCIAL = require('./social.cjs')(app, { db, tx, vid, rid, now, fail, getPlayer, ageAt }, FINANCE.core, COMMERCE, SELLER, MARKET);
+const RELATION = require('./relation.cjs')(app, { db, tx, vid, rid, now, fail, getPlayer, ageAt }, FINANCE.core, COMMERCE, SELLER);
 app.put('/api/game', (req, res) => {
   const p = getPlayer(vid(req)); if (!p || !p.profile) return fail(res, 'Profil belum dibuat.', 404);
   const game = req.body && req.body.game;
@@ -377,7 +380,7 @@ app.post('/api/profile', (req, res) => {
   db.prepare('UPDATE players SET game=NULL, clock_abs=NULL, game_key=NULL WHERE visitor=?').run(v);
   FINANCE.reset(v);
   COMMERCE.reset(v);
-  MARKET.reset(v);
+  MARKET.reset(v); SELLER.reset(v); SOCIAL.reset(v); RELATION.reset(v);
   savePlayer(p);
   // Jangan pernah menjawab sukses sebelum memastikan data benar-benar bisa dibaca ulang dari database.
   const saved = getPlayer(v);

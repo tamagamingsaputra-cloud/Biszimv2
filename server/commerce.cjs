@@ -13,10 +13,12 @@ const C = require('./shop-catalog.cjs');
 const L = require('./life-catalog.cjs');
 
 const DAY = 86_400, WARM = 14;
-const ACTIVE = ['confirmed', 'preparing', 'processing', 'packed', 'handed_to_courier', 'in_transit', 'arriving'];
+const ACTIVE = ['confirmed', 'preparing', 'processing', 'packed', 'handed_to_courier', 'in_transit', 'at_destination', 'arriving'];
 const AWAIT = ['delivered', 'ready_for_pickup'];
 const TERMINAL = ['completed', 'cancelled', 'delivery_failed', 'returned'];
 const RETURNING = ['return_requested'];
+// Alasan retur (P8). reject = peluang ditolak saat pemeriksaan (deterministik per pesanan); full = refund penuh termasuk ongkir.
+const RET_REASONS = { rusak: { label: 'Produk rusak', reject: 0.08, full: true }, tidak_sesuai: { label: 'Produk tidak sesuai deskripsi', reject: 0.12, full: true }, salah: { label: 'Produk salah', reject: 0.03, full: true }, tidak_lengkap: { label: 'Produk tidak lengkap', reject: 0.08, full: true }, tidak_diterima: { label: 'Produk tidak diterima', reject: 0, full: true }, berubah_pikiran: { label: 'Berubah pikiran', reject: 0, full: false } };
 const mod = (a, n) => ((a % n) + n) % n;
 const hf = (...p) => crypto.createHash('sha1').update(p.join('|')).digest().readUInt32BE(0) / 4294967296;
 const between = (u, a, b) => a + u * (b - a);
@@ -31,7 +33,7 @@ module.exports = function mountCommerce(app, H, F) {
   const { resolveMethod, debitSource, applyDebit, refund, checkPin, addTx, setResp, txRow, view: finView, idemOk, acct, absOf, hoursTxt, cashOf, cashApply, guard } = F;
   // Registri eksternal: modul marketplace menyediakan toko/produk dinamis (id berawalan "mp:") tanpa menduplikasi mesin pesanan.
   const EXT = { store: null, prod: null };
-  const hooks = { complete: [], release: [], paylaterRefund: null };
+  const hooks = { complete: [], release: [], decorate: [], paylaterRefund: null };
   const STORE = id => C.STORES.find(s => s.id === id) || (EXT.store ? EXT.store(id) : null);
   const PROD = id => C.PRODUCTS.find(p => p.id === id) || (EXT.prod ? EXT.prod(id) : null);
   const FUL = mode => C.FULFILLMENT[mode];
@@ -230,14 +232,14 @@ module.exports = function mountCommerce(app, H, F) {
       const packed = (() => { const h = hourOf(packedRaw); return h < C.RULES.seller.close ? packedRaw : nextHour(packedRaw, C.RULES.seller.open) + 1800; })();
       const hand = nextHour(packed, C.RULES.courierPickupHour), transit = hand + 1800;
       const R = C.RULES.parcel[q.ship || 'reguler'];
-      let days = q.km === 0 ? 1 : Math.ceil(q.km / 250) + 1; if (R.speed) days = Math.max(1, Math.ceil(days * R.speed));
+      let days = q.km === 0 ? 1 : Math.ceil(q.km / 250) + 1; if (R.speed) days = Math.max(1, Math.ceil(days * R.speed)); if (q.courier?.speed) days = Math.max(1, Math.ceil(days * q.courier.speed));
       const win = C.RULES.deliverWindow, dhour = Math.floor(between(u('dh'), win[0], win[1] - 1)) + u('dm') * 0.9;
       const dDay = Math.floor(transit / DAY) + days, deliver = dDay * DAY + Math.round(dhour * 3600);
-      const arriving = Math.max(transit + 3600, deliver - 3 * 3600);
-      stages.push(['processing', procStart], ['packed', packed], ['handed_to_courier', hand], ['in_transit', transit], ['arriving', arriving], ['delivered', deliver]);
+      const arriving = Math.max(transit + 7200, deliver - 3 * 3600), atDest = Math.max(transit + 3600, Math.min(arriving - 1800, Math.floor(deliver / DAY) * DAY + 3600));
+      stages.push(['processing', procStart], ['packed', packed], ['handed_to_courier', hand], ['in_transit', transit], ['at_destination', Math.min(atDest, arriving - 60)], ['arriving', arriving], ['delivered', deliver]);
       eta = deliver;
-      if (!plain && u('disrupt') < C.RULES.disruption.parcel) { const extra = Math.round(between(u('extra'), 12 * 3600, 24 * 3600)); delay = { extra, notice: transit + Math.round((deliver - transit) * 0.4), reason: DISRUPT.parcel[Math.floor(u('why') * 3)] }; }
-      if (!plain && u('fail') < C.RULES.failure.parcel) failure = { reason: FAILURE.parcel };
+      if (!plain && u('disrupt') < C.RULES.disruption.parcel * (q.courier?.disrupt || 1)) { const extra = Math.round(between(u('extra'), 12 * 3600, 24 * 3600)); delay = { extra, notice: transit + Math.round((deliver - transit) * 0.4), reason: DISRUPT.parcel[Math.floor(u('why') * 3)] }; }
+      if (!plain && u('fail') < C.RULES.failure.parcel * (q.courier?.fail || 1)) failure = { reason: FAILURE.parcel };
     } else { // digital
       const p1 = t0 + 20, dl = p1 + Math.round(between(u('dig'), 60, 180)); stages.push(['processing', p1], ['delivered', dl]); eta = dl;
     }
@@ -263,7 +265,7 @@ module.exports = function mountCommerce(app, H, F) {
   const stageLbl = code => C.STAGE_LABEL[code] || code;
   const NOTIF = { confirmed: ['Pembayaran berhasil', o => `${o.store_name}: pesanan ${o.id} dikonfirmasi.`], preparing: ['Pesanan mulai diproses', o => `${o.store_name} mulai menyiapkan pesananmu.`], processing: ['Pesanan mulai diproses', o => `${o.store_name} mulai memproses pesananmu.`],
     packed: ['Barang dikemas', o => `Pesanan ${o.id} sudah dikemas.`], handed_to_courier: ['Pesanan dikirim', o => `Pesanan ${o.id} diserahkan ke kurir.`], in_transit: ['Pesanan dalam perjalanan', o => `Pesanan ${o.id} sedang dikirim.`],
-    arriving: ['Pesanan hampir tiba', o => `Kurir hampir tiba untuk pesanan ${o.id}.`], delivered: ['Pesanan tiba', o => o.mode === 'digital' ? `Akses produk digital pesanan ${o.id} tersedia.` : `Pesanan ${o.id} tiba. Konfirmasi penerimaan di Order Center.`], ready_for_pickup: ['Pesanan siap diambil', o => `Pesanan ${o.id} siap diambil di ${o.store_name}.`] };
+    at_destination: ['Paket tiba di kota tujuan', o => `Pesanan ${o.id} tiba di kota tujuan dan menunggu kurir.`], arriving: ['Pesanan hampir tiba', o => `Kurir hampir tiba untuk pesanan ${o.id}.`], delivered: ['Pesanan tiba', o => o.mode === 'digital' ? `Akses produk digital pesanan ${o.id} tersedia.` : `Pesanan ${o.id} tiba. Konfirmasi penerimaan di Order Center.`], ready_for_pickup: ['Pesanan siap diambil', o => `Pesanan ${o.id} siap diambil di ${o.store_name}.`] };
 
   // ————————————————————————— refund & pemulihan —————————————————————————
   const srcOf = o => { const s = parse(o.source, {}); return s.type === 'cash' ? { type: 'cash' } : s.type === 'paylater' ? { type: 'paylater' } : { type: 'acct', acct: acct(o.visitor, s.id) }; };
@@ -316,8 +318,13 @@ module.exports = function mountCommerce(app, H, F) {
         for (const s of ret.stages) {
           if (s.at > nowAbs) break;
           if (s.code === 'ret_pickup') { if (evIns(o.id, 'ret_pickup', s.at, 'Kurir mengambil barang retur')) notify(v, o.id, 'ret_pickup', 'Barang retur diambil kurir', `Retur pesanan ${o.id} sedang dikirim ke penjual.`, s.at); }
-          if (s.code === 'ret_received') { if (evIns(o.id, 'ret_received', s.at, 'Penjual menerima barang retur')) { db.prepare("UPDATE shop_orders SET ful_status='returned', end_abs=? WHERE id=?").run(s.at, o.id); restockOrder(cur, dayOf(s.at)); voidRewards(o.id, 'Barang dikembalikan'); releaseVoucher(cur, s.at); cur = db.prepare('SELECT * FROM shop_orders WHERE id=?').get(o.id); } }
-          if (s.code === 'ret_refund') { if (evIns(o.id, 'ret_refund', s.at, 'Refund diproses', `${fmtRp(ret.amount)} dikembalikan`)) { refundPayment(p, cur, ret.amount, s.at, `Refund retur pesanan ${o.id}`, ret.amount >= cur.total); notify(v, o.id, 'refund', 'Refund selesai', `${fmtRp(ret.amount)} dikembalikan ke sumber pembayaran untuk pesanan ${o.id}.`, s.at); } }
+          if (s.code === 'ret_received') { if (evIns(o.id, 'ret_received', s.at, 'Penjual menerima barang retur')) notify(v, o.id, 'ret_received', 'Barang retur diterima penjual', `Penjual memeriksa barang retur pesanan ${o.id}.`, s.at); }
+          if (s.code === 'ret_inspect') {
+            if (ret.decision === 'reject') {
+              if (evIns(o.id, 'ret_rejected', s.at, 'Retur ditolak setelah pemeriksaan', ret.rejectReason)) { db.prepare("UPDATE shop_orders SET ful_status='delivered', reason=?, ret=?, end_abs=NULL WHERE id=? AND ful_status='return_requested'").run('Retur ditolak: ' + ret.rejectReason, JSON.stringify({ ...ret, rejected: true }), o.id); notify(v, o.id, 'ret_rejected', 'Retur ditolak', `Retur pesanan ${o.id} ditolak: ${ret.rejectReason}. Barang dikirim kembali kepadamu.`, s.at); return; }
+            } else if (evIns(o.id, 'ret_approved', s.at, 'Retur disetujui setelah pemeriksaan')) notify(v, o.id, 'ret_approved', 'Retur disetujui', `Pemeriksaan selesai. Refund ${fmtRp(ret.amount)} sedang diproses.`, s.at);
+          }
+          if (s.code === 'ret_refund') { if (evIns(o.id, 'ret_refund', s.at, 'Refund diproses', `${fmtRp(ret.amount)} dikembalikan`)) { db.prepare("UPDATE shop_orders SET ful_status='returned', end_abs=? WHERE id=?").run(s.at, o.id); if (!ret.lost) restockOrder(cur, dayOf(s.at)); voidRewards(o.id, 'Barang dikembalikan'); releaseVoucher(cur, s.at); cur = db.prepare('SELECT * FROM shop_orders WHERE id=?').get(o.id); refundPayment(p, cur, ret.amount, s.at, `Refund retur pesanan ${o.id}`, ret.amount >= cur.total); notify(v, o.id, 'refund', 'Refund selesai', `${fmtRp(ret.amount)} dikembalikan ke sumber pembayaran untuk pesanan ${o.id}.`, s.at); } }
         }
       }
     })();
@@ -341,10 +348,12 @@ module.exports = function mountCommerce(app, H, F) {
     if (ful === 'completed') progress = 100; if (cancelled || (returning && ful !== 'completed')) progress = cancelled ? progress : 100;
     const can = cancelReason(o, nowAbs), ret = returnReason(o, nowAbs);
     const bonusRows = full ? db.prepare('SELECT id, kind, label, status, reason, amount FROM shop_rewards WHERE order_id=? ORDER BY created').all(o.id) : undefined;
-    return { id: o.id, store: o.store, storeName: STORE(o.store)?.name, mode: o.mode, modeLabel: fl.label, where: fl.where, lines, sub: o.sub, fees: parse(o.fees, []), discounts: parse(o.discounts, []), total: o.total, method: o.method, methodLabel: o.method_label,
+    const out = { id: o.id, store: o.store, storeName: STORE(o.store)?.name, mode: o.mode, modeLabel: fl.label, where: fl.where, lines, sub: o.sub, fees: parse(o.fees, []), discounts: parse(o.discounts, []), total: o.total, method: o.method, methodLabel: o.method_label,
       payStatus: o.pay_status, fulStatus: ful, fulLabel: C.STAGE_LABEL[ful] || ful, reason: o.reason, progress, stages, eta: o.eta_abs, etaOrig: o.eta_orig_abs, etaChanged: o.eta_abs !== o.eta_orig_abs && done.has('eta_changed'), placedAbs: o.placed_abs, doneAbs: o.done_abs, endAbs: o.end_abs,
       loc: parse(o.loc, null), ship: o.ship, canCancel: can.ok, cancelWhy: can.ok ? null : can.why, canClaim: AWAIT.includes(ful), claimLabel: fl.claimLabel, claimNote: AWAIT.includes(ful) && o.pay_status === 'cod_pending' ? `Siapkan uang tunai ${fmtRp(o.total)} (COD).` : null,
-      canReturn: ret.ok, returnWhy: ret.ok ? null : ret.why, events: full ? events : undefined, rewards: bonusRows, txId: o.tx_id };
+      canReturn: ret.ok, returnWhy: ret.ok ? null : ret.why, canReportLost: lostReason(o, nowAbs).ok, retInfo: ['return_requested', 'returned'].includes(ful) || parse(o.ret, null)?.rejected ? (() => { const r = parse(o.ret, {}); return { reason: r.reason, label: RET_REASONS[r.reason]?.label, amount: r.amount, rejected: !!r.rejected, rejectReason: r.rejectReason || null }; })() : null, returnReasons: Object.entries(RET_REASONS).map(([k, x]) => ({ id: k, label: x.label, full: x.full })), events: full ? events : undefined, rewards: bonusRows, txId: o.tx_id };
+    for (const h of hooks.decorate) h(o, out, { events, nowAbs, full });
+    return out;
   }
   function cancelReason(o, nowAbs) {
     const fl = FUL(o.mode), f = o.ful_status;
@@ -352,10 +361,13 @@ module.exports = function mountCommerce(app, H, F) {
     if (TERMINAL.includes(f) || RETURNING.includes(f)) return { ok: false, why: f === 'completed' ? 'Pesanan sudah selesai. Pembelian yang sudah diterima tidak dapat dibatalkan.' : 'Pesanan sudah ditutup.' };
     if (AWAIT.includes(f)) return { ok: false, why: o.mode === 'digital' ? 'Produk digital yang sudah dikirim tidak dapat dibatalkan.' : 'Pesanan sudah tiba/siap — konfirmasi penerimaan, atau ajukan retur bila memenuhi syarat.' };
     if (fl.cancelable.includes(f)) return { ok: true };
-    const why = { preparing: 'Makanan/pesanan sudah mulai disiapkan — tidak dapat dibatalkan.', processing: 'Penjual sudah memproses pesanan.', packed: 'Pesanan sudah dikemas — tidak dapat dibatalkan.', handed_to_courier: 'Pesanan sudah diserahkan ke kurir.', in_transit: 'Pesanan sedang dalam perjalanan — tidak dapat dibatalkan.', arriving: 'Kurir hampir tiba — tidak dapat dibatalkan.' }[f];
+    const why = { preparing: 'Makanan/pesanan sudah mulai disiapkan — tidak dapat dibatalkan.', processing: 'Penjual sudah memproses pesanan.', packed: 'Pesanan sudah dikemas — tidak dapat dibatalkan.', handed_to_courier: 'Pesanan sudah diserahkan ke kurir.', in_transit: 'Pesanan sedang dalam perjalanan — tidak dapat dibatalkan.', at_destination: 'Paket sudah di kota tujuan — tidak dapat dibatalkan.', arriving: 'Kurir hampir tiba — tidak dapat dibatalkan.' }[f];
     return { ok: false, why: why || 'Pesanan tidak dapat dibatalkan pada tahap ini.' };
   }
+  // Paket belum tiba melewati estimasi + 2 hari → boleh dilaporkan "tidak diterima" (investigasi ekspedisi lalu refund).
+  const lostReason = (o, nowAbs) => o.mode === 'parcel' && ['in_transit', 'at_destination', 'arriving', 'handed_to_courier'].includes(o.ful_status) && o.pay_status !== 'cod_pending' && nowAbs > (o.eta_abs || 0) + 2 * DAY ? { ok: true } : { ok: false };
   function returnReason(o, nowAbs) {
+    if (parse(o.ret, null)?.rejected) return { ok: false, why: 'Retur untuk pesanan ini sudah ditolak setelah pemeriksaan.' };
     if (o.ful_status !== 'delivered') return { ok: false, why: o.ful_status === 'completed' ? 'Barang yang sudah diterima/dipakai tidak dapat dikembalikan.' : 'Retur hanya bisa diajukan setelah paket tiba dan sebelum dikonfirmasi diterima.' };
     if (o.mode !== 'parcel') return { ok: false, why: 'Hanya paket yang dikirim kurir yang dapat dikembalikan.' };
     const lines = parse(o.lines, []); const bad = lines.find(l => !PROD(l.id)?.returnable);
@@ -476,7 +488,7 @@ module.exports = function mountCommerce(app, H, F) {
   // ————————————————————————— daftar, detail, ringkasan —————————————————————————
   function listOrders(p, nowAbs, filter, limit = 60) {
     tickAll(p, nowAbs);
-    const sets = { processing: ['confirmed', 'preparing', 'processing', 'packed'], pickup: ['ready_for_pickup'], delivery: ['handed_to_courier', 'in_transit', 'arriving', 'delivered'], completed: ['completed'], cancelled: ['cancelled', 'delivery_failed', 'return_requested', 'returned'] };
+    const sets = { processing: ['confirmed', 'preparing', 'processing', 'packed'], pickup: ['ready_for_pickup'], delivery: ['handed_to_courier', 'in_transit', 'at_destination', 'arriving', 'delivered'], completed: ['completed'], cancelled: ['cancelled', 'delivery_failed', 'return_requested', 'returned'] };
     let rows = db.prepare('SELECT * FROM shop_orders WHERE visitor=? ORDER BY placed_abs DESC, created DESC LIMIT ?').all(p.visitor, limit);
     if (filter && sets[filter]) rows = rows.filter(r => sets[filter].includes(r.ful_status));
     return rows;
@@ -497,7 +509,7 @@ module.exports = function mountCommerce(app, H, F) {
     tickAll(p, clk.abs);
     const rows = db.prepare('SELECT * FROM shop_orders WHERE visitor=? ORDER BY placed_abs DESC LIMIT 40').all(v);
     const by = f => rows.filter(r => f.includes(r.ful_status));
-    const proc = by(['confirmed', 'preparing', 'processing', 'packed']), ready = by(['ready_for_pickup']), transit = by(['handed_to_courier', 'in_transit', 'arriving']), arrived = by(['delivered']);
+    const proc = by(['confirmed', 'preparing', 'processing', 'packed']), ready = by(['ready_for_pickup']), transit = by(['handed_to_courier', 'in_transit', 'at_destination', 'arriving']), arrived = by(['delivered']);
     const act = rows.filter(r => ACTIVE.includes(r.ful_status)); const next = act.slice().sort((a, b) => a.eta_abs - b.eta_abs)[0];
     const fresh = db.prepare('SELECT id, kind, title, body, at_abs AS at, order_id AS orderId FROM shop_notifs WHERE visitor=? AND toasted=0 ORDER BY id').all(v);
     if (fresh.length) db.prepare('UPDATE shop_notifs SET toasted=1 WHERE visitor=? AND toasted=0').run(v);
@@ -537,19 +549,20 @@ module.exports = function mountCommerce(app, H, F) {
   app.post('/api/shop/order/return', guard((req, res) => {
     const p = need(req, res); if (!p) return; const clk = clockPost(req, p); if (clk.error) return fail(res, clk.error); const v = p.visitor;
     tickAll(p, clk.abs);
-    const reason = ['rusak', 'tidak_sesuai', 'berubah_pikiran'].includes(req.body.reason) ? req.body.reason : null; if (!reason) return fail(res, 'Pilih alasan retur.');
+    const reason = Object.keys(RET_REASONS).includes(req.body.reason) ? req.body.reason : null; if (!reason) return fail(res, 'Pilih alasan retur.');
     let out;
     dbTx(() => {
       const o = db.prepare('SELECT * FROM shop_orders WHERE id=? AND visitor=?').get(req.body.order, v); if (!o) { out = { ok: false, error: 'Pesanan tidak ditemukan.', code: 404 }; return; }
-      const rr = returnReason(o, clk.abs); if (!rr.ok) { out = { ok: false, error: rr.why }; return; }
+      const lost = reason === 'tidak_diterima', rr = lost ? (lostReason(o, clk.abs).ok ? { ok: true } : { ok: false, why: 'Laporan paket tidak diterima baru bisa dibuat 2 hari setelah estimasi tiba terlewat.' }) : returnReason(o, clk.abs); if (!rr.ok) { out = { ok: false, error: rr.why }; return; }
       const fees = parse(o.fees, []), ship = fees.filter(f => ['shipping', 'service', 'cod'].includes(f.code)).reduce((s, f) => s + f.amount, 0);
       const amount = o.pay_status === 'cod_pending' ? 0 : reason === 'berubah_pikiran' ? Math.max(0, o.total - ship - C.RULES.returnShippingFee) : o.total;
-      const origin = Math.max(...parse(o.lines, []).map(l => C.distanceKm(PROD(l.id)?.origin || 'x', p.profile.city)));
+      const origin = lost ? 0 : Math.max(...parse(o.lines, []).map(l => C.distanceKm(PROD(l.id)?.origin || 'x', p.profile.city)));
       const t1 = clk.abs + 4 * 3600, back = Math.max(1, Math.ceil(origin / 400)) * DAY, t2 = nextHour(t1 + back, 10), t3 = t2 + 6 * 3600;
-      const ret = { reason, amount, stages: [{ code: 'ret_pickup', at: t1 }, { code: 'ret_received', at: t2 }, { code: 'ret_refund', at: t3 }] };
-      const r = db.prepare("UPDATE shop_orders SET ful_status='return_requested', ret=?, end_abs=NULL WHERE id=? AND ful_status='delivered'").run(JSON.stringify(ret), o.id);
+      const rj = RET_REASONS[reason].reject, bad = hf(o.id, 'insp') < rj, why = { rusak: 'Kerusakan tidak terbukti dari pemeriksaan barang', tidak_sesuai: 'Barang sesuai deskripsi produk', salah: 'Barang sesuai pesanan', tidak_lengkap: 'Kelengkapan barang sesuai catatan pengemasan', tidak_diterima: 'Paket tercatat diterima', berubah_pikiran: '' }[reason];
+      const ret = { reason, amount, decision: bad ? 'reject' : 'approve', rejectReason: bad ? why : null, lost, stages: lost ? [{ code: 'ret_inspect', at: clk.abs + 6 * 3600 }, { code: 'ret_refund', at: clk.abs + 12 * 3600 }] : [{ code: 'ret_pickup', at: t1 }, { code: 'ret_received', at: t2 }, { code: 'ret_inspect', at: t2 + 2 * 3600 }, { code: 'ret_refund', at: t3 + 2 * 3600 }] };
+      const r = db.prepare("UPDATE shop_orders SET ful_status='return_requested', ret=?, end_abs=NULL WHERE id=? AND ful_status IN ('delivered','in_transit','at_destination','arriving','handed_to_courier')").run(JSON.stringify(ret), o.id);
       if (!r || !r.changes) { out = { ok: false, error: 'Status pesanan berubah. Muat ulang.' }; return; }
-      evIns(o.id, 'return_requested', clk.abs, 'Pengembalian diajukan', { rusak: 'Barang rusak/cacat', tidak_sesuai: 'Tidak sesuai pesanan', berubah_pikiran: 'Berubah pikiran' }[reason]);
+      evIns(o.id, 'return_requested', clk.abs, 'Pengembalian diajukan', RET_REASONS[reason].label);
       notify(v, o.id, 'return', 'Pengembalian diajukan', `Retur pesanan ${o.id}: refund ${fmtRp(amount)} setelah penjual menerima barang.`, clk.abs);
       out = { ...finView(p, clk.abs), ok: true, order: orderOut(db.prepare('SELECT * FROM shop_orders WHERE id=?').get(o.id), clk.abs, true), msg: `Retur diajukan. Refund ${fmtRp(amount)} diproses setelah barang diterima penjual.`, cashAdj: [] };
     })();

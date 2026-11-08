@@ -13,7 +13,7 @@ for (const module of ['dashboard','market','investments','business','career','ed
   assert.ok(css.includes(`body[data-module="${module}"]`), `tema ${module} tersedia`);
 }
 assert.ok(!css.includes('@import url('), 'stylesheet tidak membutuhkan font eksternal');
-assert.ok(shell.includes("'career.html#internships'") && shell.includes("'life.html#belanja'"), 'menu memuat magang dan toko/inventaris');
+assert.ok(shell.includes("'career.html#internships'") && shell.includes("'life.html#inventaris'"), 'menu memuat magang dan toko/inventaris');
 assert.ok(career.includes('function internshipsView()') && career.includes("internships: internshipsView"), 'tab magang benar-benar dirender');
 assert.ok(api.includes("localStorage.getItem(VISITOR_KEY)") && api.includes("'x-visitor-id': visitorId()"), 'ID pengunjung stabil lintas halaman/reload');
 assert.ok(server.includes('TURSO_DATABASE_URL') && server.includes('TURSO_AUTH_TOKEN') && server.includes("'managed-remote-database'"), 'health endpoint memeriksa database persisten terkelola');

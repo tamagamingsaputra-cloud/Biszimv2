@@ -39,8 +39,8 @@ const FULFILLMENT = {
   },
   parcel: {
     label: 'Kirim paket', where: 'Dikirim ke alamat',
-    stages: [['confirmed', 'Pesanan dikonfirmasi'], ['processing', 'Penjual memproses'], ['packed', 'Dikemas'], ['handed_to_courier', 'Diserahkan ke kurir'], ['in_transit', 'Dalam perjalanan'], ['arriving', 'Kurir di area kamu'], ['delivered', 'Paket tiba']],
-    claimLabel: 'Terima paket', cancelable: ['confirmed', 'processing'], notify: ['confirmed', 'processing', 'packed', 'in_transit', 'arriving', 'delivered'],
+    stages: [['confirmed', 'Pesanan diterima'], ['payment_confirmed', 'Pembayaran dikonfirmasi'], ['processing', 'Penjual mempersiapkan produk'], ['packed', 'Dikemas'], ['handed_to_courier', 'Diserahkan ke ekspedisi'], ['in_transit', 'Paket transit'], ['at_destination', 'Tiba di kota tujuan'], ['arriving', 'Dibawa kurir'], ['delivered', 'Paket diterima pemain']],
+    claimLabel: 'Terima paket', cancelable: ['confirmed', 'processing'], notify: ['confirmed', 'processing', 'packed', 'handed_to_courier', 'in_transit', 'at_destination', 'arriving', 'delivered'],
   },
   digital: {
     label: 'Produk digital', where: 'Dikirim ke akun',
@@ -51,7 +51,7 @@ const FULFILLMENT = {
 // Pembeda COD pada jalur yang diantar: pembayaran dilakukan saat claim.
 const STAGE_LABEL = {
   confirmed: 'Pesanan dikonfirmasi', preparing: 'Sedang disiapkan', processing: 'Penjual memproses', packed: 'Dikemas', ready_for_pickup: 'Siap diambil',
-  handed_to_courier: 'Diserahkan ke kurir', in_transit: 'Dalam perjalanan', arriving: 'Hampir tiba', delivered: 'Tiba / tersedia', completed: 'Selesai',
+  handed_to_courier: 'Diserahkan ke kurir', in_transit: 'Dalam perjalanan', at_destination: 'Tiba di kota tujuan', arriving: 'Hampir tiba', delivered: 'Tiba / tersedia', completed: 'Selesai',
   cancelled: 'Dibatalkan', delivery_failed: 'Pengiriman gagal', return_requested: 'Pengembalian diajukan', returned: 'Dikembalikan',
 };
 

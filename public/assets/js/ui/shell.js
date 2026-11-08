@@ -11,12 +11,14 @@ export const NAV = [
   { id: 'dashboard', href: 'index.html', label: 'Dashboard', short: 'Home', icon: 'dashboard', group: 'Hidup' },
   { id: 'life', href: 'life.html', label: 'Kehidupan', short: 'Hidup', icon: 'life', group: 'Hidup' },
   { id: 'calendar', href: 'calendar.html', label: 'Kalender & Jadwal', short: 'Kalender', icon: 'calendar', group: 'Hidup' },
-  { id: 'marketplace', href: 'marketplace.html', label: 'Marketplace', short: 'Mall', icon: 'store', group: 'Hidup' },
+  { id: 'social', href: 'social.html', label: 'Sosial', short: 'Sosial', icon: 'user', group: 'Hidup' },
+  { id: 'world3d', href: 'world3d.html', label: 'Kampung 3D', short: '3D', icon: 'land', group: 'Hidup' },
   { id: 'shop', href: 'shop.html', label: 'Belanja & Order', short: 'Belanja', icon: 'cart', group: 'Hidup' },
   { id: 'finance', href: 'finance.html', label: 'Keuangan', short: 'Uang', icon: 'wallet', group: 'Uang & Aset' },
   { id: 'market', href: 'market.html', label: 'Asset Market', short: 'Market', icon: 'market', group: 'Uang & Aset' },
   { id: 'investments', href: 'investments.html', label: 'Investments', short: 'Invest', icon: 'invest', group: 'Uang & Aset' },
   { id: 'business', href: 'business.html', label: 'Business', short: 'Business', icon: 'business', group: 'Uang & Aset' },
+  { id: 'seller', href: 'seller.html', label: 'Seller Center', short: 'Seller', icon: 'store', group: 'Uang & Aset' },
   { id: 'education', href: 'education.html', label: 'Education', short: 'Edu', icon: 'education', group: 'Karier & Ilmu' },
   { id: 'career', href: 'career.html', label: 'Career & Jobs', short: 'Career', icon: 'career', group: 'Karier & Ilmu' },
   { id: 'studio', href: 'studio.html', label: 'Creator Studio', short: 'Studio', icon: 'studio', group: 'Karier & Ilmu' },
@@ -25,19 +27,19 @@ const BOTTOM = ['dashboard', 'life', 'finance', 'calendar'];
 // Isi lembar Menu (mobile) — setiap fitur dan sub-bagian penting, langsung ke tab yang dituju.
 export const MENU = [
   { title: 'Hidup sehari-hari', items: [
-    ['dashboard', 'index.html', 'Dashboard', 'dashboard'], ['life', 'life.html#kebutuhan', 'Kebutuhan', 'life'], ['life', 'life.html#makan', 'Makan & Minum', 'food'],
-    ['life', 'life.html#istirahat', 'Istirahat & Mandi', 'bed'], ['life', 'life.html#kesehatan', 'Kesehatan', 'heart'], ['life', 'life.html#antar', 'Pesan Antar', 'truck'],
-    ['marketplace', 'marketplace.html', 'Marketplace (4 aplikasi)', 'store'], ['shop', 'shop.html#toko', 'Toko Lokal', 'cart'], ['shop', 'shop.html#pesanan', 'Order Center', 'box'], ['shop', 'shop.html#reward', 'Reward Belanja', 'gift'], ['life', 'life.html#transport', 'Transport', 'bus'], ['calendar', 'calendar.html', 'Kalender', 'calendar'] ] },
+    ['dashboard', 'index.html', 'Dashboard', 'dashboard'], ['world3d', 'world3d.html', 'Kampung 3D', 'land'], ['life', 'life.html#kebutuhan', 'Kebutuhan', 'life'], ['life', 'life.html#makan', 'Makan & Minum', 'food'],
+    ['life', 'life.html#istirahat', 'Istirahat & Mandi', 'bed'], ['life', 'life.html#kesehatan', 'Kesehatan', 'heart'],
+    ['shop', 'marketplace.html', 'Marketplace (4 aplikasi)', 'store'], ['shop', 'shop.html#toko', 'Toko Lokal', 'cart'], ['shop', 'shop.html#pesanan', 'Order Center', 'box'], ['shop', 'shop.html#reward', 'Reward Belanja', 'gift'], ['life', 'life.html#transport', 'Transport', 'bus'], ['calendar', 'calendar.html', 'Kalender', 'calendar'] ] },
   { title: 'Keuangan', items: [
     ['finance', 'finance.html#ringkasan', 'Ringkasan', 'wallet'], ['finance', 'finance.html#rekening', 'Rekening Bank', 'bank'], ['finance', 'finance.html#kartu', 'Kartu', 'card'],
     ['finance', 'finance.html#dompet', 'Dompet Digital', 'qr'], ['finance', 'finance.html#topup', 'Top Up', 'up'], ['finance', 'finance.html#transfer', 'Transfer', 'transfer'],
     ['finance', 'finance.html#riwayat', 'Riwayat', 'history'], ['finance', 'finance.html#tagihan', 'Tagihan Kartu', 'doc'] ] },
   { title: 'Aset & Usaha', items: [
     ['market', 'market.html', 'Asset Market', 'market'], ['investments', 'investments.html#portfolio', 'Portofolio', 'chart'], ['investments', 'investments.html#tanah', 'Tanah', 'land'],
-    ['investments', 'investments.html#emas', 'Emas', 'gold'], ['investments', 'investments.html#deposito', 'Deposito', 'lock'], ['business', 'business.html', 'Business', 'business'] ] },
+    ['investments', 'investments.html#emas', 'Emas', 'gold'], ['investments', 'investments.html#deposito', 'Deposito', 'lock'], ['business', 'business.html', 'Business', 'business'], ['seller', 'seller.html', 'Seller Center', 'store'] ] },
   { title: 'Karier & Pendidikan', items: [
     ['education', 'education.html#overview', 'Education', 'education'], ['education', 'education.html#exam', 'Ruang Ujian', 'exam'], ['career', 'career.html#jobs', 'Lowongan', 'career'],
-    ['career', 'career.html#active', 'Pekerjaan & Payroll', 'task'], ['career', 'career.html#internships', 'Program Magang', 'briefcase-business'], ['life', 'life.html#belanja', 'Inventaris Rumah', 'box'], ['studio', 'studio.html', 'Creator Studio', 'studio'], ['studio', 'studio.html#live', 'Live Studio', 'broadcast'] ] },
+    ['career', 'career.html#active', 'Pekerjaan & Payroll', 'task'], ['career', 'career.html#internships', 'Program Magang', 'briefcase-business'], ['life', 'life.html#inventaris', 'Inventaris Rumah', 'box'], ['studio', 'studio.html', 'Creator Studio', 'studio'], ['studio', 'studio.html#live', 'Live Studio', 'broadcast'] ] },
 ];
 const AGE_PAGE = { market: 'trading', investments: 'invest', business: 'business', career: 'gig' };
 

@@ -7,6 +7,7 @@
 //  • Harga, stok, voucher, ongkir, biaya layanan, dan tagihan dihitung server. Klien hanya mengirim id listing, variasi, jumlah, kode.
 const crypto = require('crypto');
 const M = require('./market-catalog.cjs');
+const ECON = require('./mp-economy.cjs');
 const SHOP = require('./shop-catalog.cjs');
 const L = require('./life-catalog.cjs');
 
@@ -31,13 +32,14 @@ module.exports = function mountMarket(app, H, F, CM) {
   CREATE TABLE IF NOT EXISTS mp_wishlist (visitor TEXT, market TEXT, listing TEXT, created INTEGER, PRIMARY KEY (visitor, market, listing));
   CREATE TABLE IF NOT EXISTS mp_cart (visitor TEXT, market TEXT, listing TEXT, variant TEXT, qty INTEGER, selected INTEGER DEFAULT 1, created INTEGER, PRIMARY KEY (visitor, market, listing, variant));
   CREATE TABLE IF NOT EXISTS mp_vouchers (visitor TEXT, market TEXT, code TEXT, status TEXT, uses_left INTEGER, claimed_abs INTEGER, expires_day INTEGER, period INTEGER, PRIMARY KEY (visitor, market, code));
-  CREATE TABLE IF NOT EXISTS mp_order_meta (order_id TEXT PRIMARY KEY, visitor TEXT, market TEXT, seller TEXT, group_id TEXT, cashback INTEGER DEFAULT 0, svc_fee INTEGER DEFAULT 0, vouchers TEXT, cashback_paid INTEGER DEFAULT 0, loan_id TEXT, points_done INTEGER DEFAULT 0);
+  CREATE TABLE IF NOT EXISTS mp_order_meta (order_id TEXT PRIMARY KEY, visitor TEXT, market TEXT, seller TEXT, group_id TEXT, cashback INTEGER DEFAULT 0, svc_fee INTEGER DEFAULT 0, vouchers TEXT, cashback_paid INTEGER DEFAULT 0, loan_id TEXT, points_done INTEGER DEFAULT 0, courier TEXT);
   CREATE TABLE IF NOT EXISTS mp_paylater (visitor TEXT, market TEXT, status TEXT, lim INTEGER, used INTEGER DEFAULT 0, activated_day INTEGER, late_count INTEGER DEFAULT 0, PRIMARY KEY (visitor, market));
   CREATE TABLE IF NOT EXISTS mp_pl_loans (id TEXT PRIMARY KEY, visitor TEXT, market TEXT, group_id TEXT, principal INTEGER, tenor INTEGER, rate_month REAL, fee INTEGER, interest INTEGER, total INTEGER, created_day INTEGER, status TEXT);
   CREATE TABLE IF NOT EXISTS mp_pl_bills (id TEXT PRIMARY KEY, visitor TEXT, market TEXT, loan TEXT, seq INTEGER, of INTEGER, due_day INTEGER, principal INTEGER, fee INTEGER, interest INTEGER, late_fee INTEGER DEFAULT 0, extra INTEGER DEFAULT 0, paid INTEGER DEFAULT 0, status TEXT, fined INTEGER DEFAULT 0, mo_applied INTEGER DEFAULT 0, paid_day INTEGER);
   CREATE TABLE IF NOT EXISTS mp_points (visitor TEXT PRIMARY KEY, points INTEGER DEFAULT 0);`;
   function migrate() {
     db.exec(SCHEMA);
+    try { db.exec('ALTER TABLE mp_order_meta ADD COLUMN courier TEXT'); } catch { /* sudah ada */ }
     for (const ix of ['CREATE INDEX IF NOT EXISTS ix_mp_hist ON mp_history (visitor, market, id)', 'CREATE INDEX IF NOT EXISTS ix_mp_bills ON mp_pl_bills (visitor, market, status)', 'CREATE INDEX IF NOT EXISTS ix_mp_addr ON mp_addresses (visitor, market)', 'CREATE INDEX IF NOT EXISTS ix_mp_meta_v ON mp_order_meta (visitor, group_id)']) { try { db.exec(ix); } catch { /* opsional */ } }
   }
   const TABLES = ['mp_accounts', 'mp_addresses', 'mp_history', 'mp_wishlist', 'mp_cart', 'mp_vouchers', 'mp_order_meta', 'mp_paylater', 'mp_pl_loans', 'mp_pl_bills', 'mp_points'];
@@ -78,10 +80,39 @@ module.exports = function mountMarket(app, H, F, CM) {
   const kmTo = (sellerCity, buyerCity) => SHOP.distanceKm(sellerCity, buyerCity);
   const etaDays = (km, ship) => { const d = km === 0 ? 1 : Math.ceil(km / 250) + 1; return Math.max(1, ship === 'ekspres' ? Math.ceil(d * 0.5) : d); };
   const roundStep = (n, s) => Math.round(n / s) * s;
-  function shipFee(m, km, weightG, ship) {
+  function shipFee(m, km, weightG, ship, cr) {
     const R = M.RULES.ship[ship]; const kg = Math.max(0, Math.ceil(weightG / 1000) - M.RULES.ship.freeKg);
-    return Math.max(0, roundStep((R.base + R.per100km * km / 100 + M.RULES.ship.perKg * kg) * (1 - m.shipDiscount), 500));
+    return Math.max(0, roundStep((R.base + R.per100km * km / 100 + M.RULES.ship.perKg * kg) * (1 - m.shipDiscount) * (cr ? cr.tariff : 1), 500));
   }
+  // Ketersediaan ekspedisi untuk satu pesanan: kapasitas (berat) dan jangkauan (jarak).
+  const courierWhy = (cr, km, weightG) => weightG > cr.maxKg * 1000 ? `Melebihi kapasitas ${cr.maxKg} kg` : km > cr.maxKm ? `Di luar jangkauan (${cr.maxKm} km)` : null;
+  const etaFor = (km, ship, cr) => Math.max(1, Math.ceil(etaDays(km, ship) * (cr ? cr.speed : 1)));
+
+  // ————————————————————————— dekorasi pesanan (Order Center): marketplace, ekspedisi, tracking 8 langkah —————————————————————————
+  const TRACK = [['confirmed', 'Pesanan diterima'], ['payment_confirmed', 'Pembayaran dikonfirmasi'], ['processing', 'Penjual mempersiapkan produk', ['processing', 'packed']], ['handed_to_courier', 'Paket diserahkan ke ekspedisi'], ['in_transit', 'Paket transit'], ['at_destination', 'Paket tiba di kota tujuan'], ['arriving', 'Paket dibawa kurir'], ['delivered', 'Paket diterima pemain']];
+  CM.hooks.decorate.push((o, out, ctx) => {
+    if (!o.store.startsWith('mp-')) return;
+    const meta = db.prepare('SELECT * FROM mp_order_meta WHERE order_id=?').get(o.id); if (!meta) return;
+    const m = M.MARKET(meta.market), cr = M.COURIER(meta.courier || 'jnex'), sl = M.SELLER(meta.seller);
+    out.market = { id: m.id, name: m.name, color: m.color }; out.seller = { id: sl?.id, name: sl?.name, city: sl?.city }; out.courier = { id: cr.id, name: cr.name, color: cr.color, tag: cr.tag };
+    out.vouchers = parse(meta.vouchers, []); out.cashback = meta.cashback; out.svcFee = meta.svc_fee; out.groupId = meta.group_id;
+    out.lines = out.lines.map(l => { const lid = String(l.id).startsWith('mp:') ? String(l.id).slice(3) : null, li = lid && M.LISTING(lid), pr = li && PROD(li.product); return { ...l, art: pr ? { sub: pr.sub, cat: pr.cat } : null, brand: pr?.brand, unit: l.price, listing: lid }; });
+    const ev = ctx.events || db.prepare('SELECT code, at_abs AS at, label FROM shop_events WHERE order_id=? ORDER BY at_abs, rowid').all(o.id).map(e => ({ code: e.code, at: e.at, label: e.label }));
+    const at = codes => { const hit = ev.filter(e => codes.includes(e.code)); return hit.length ? Math.min(...hit.map(e => e.at)) : null; };
+    const fin = ['cancelled', 'delivery_failed'].includes(o.ful_status);
+    let cur = -1; const steps = TRACK.map(([code, label, alt], i) => { const t = at(alt || [code]); if (t != null) cur = i; return { code, label, at: t }; });
+    const done = o.ful_status === 'completed' ? steps.length - 1 : cur;
+    out.tracking = { steps: steps.map((s, i) => ({ ...s, state: s.at != null || (o.ful_status === 'completed') ? (i === done && !['delivered', 'completed', 'returned', 'return_requested'].includes(o.ful_status) && !fin ? 'current' : 'done') : 'todo' })), current: done, finished: ['delivered', 'completed'].includes(o.ful_status) || out.fulStatus === 'returned' || out.fulStatus === 'return_requested', failed: fin, eta: out.eta, vehicle: cr.id === 'cargomax' ? 'truck' : cr.id === 'fastexpress' ? 'bike' : cr.id === 'ecodelivery' ? 'ev' : 'van' };
+    // posisi bar: langkah selesai + fraksi waktu simulasi menuju langkah berikutnya (berdasar jadwal rencana server)
+    const plan = parse(o.plan, null), planAt = codes => { const hit = (plan?.stages || []).filter(e => codes.includes(e.code)); return hit.length ? Math.min(...hit.map(e => e.at)) : null; };
+    let fill = 0; const N = TRACK.length - 1;
+    if (o.ful_status === 'completed' || out.tracking.finished) fill = 100; else if (out.tracking.failed || done < 0) fill = Math.max(0, done) / N * 100;
+    else { const nxt = TRACK[done + 1], tn = nxt ? planAt(nxt[2] || [nxt[0]]) : null, t0 = steps[done].at; const fr = tn && t0 != null && tn > t0 ? Math.max(0, Math.min(0.95, (ctx.nowAbs - t0) / (tn - t0))) : 0; fill = Math.round((done + fr) / N * 1000) / 10; }
+    out.tracking.fill = Math.min(100, fill);
+    out.tab = tabOf(o.ful_status); out.tabs = [out.tab]; if (o.pay_status === 'cod_pending' && !['completed', 'cancelled', 'delivery_failed', 'returned'].includes(o.ful_status)) out.tabs.unshift('belum_dibayar');
+  });
+  // Tab Order Center sesuai spesifikasi.
+  const tabOf = ful => ['confirmed', 'payment_confirmed', 'processing', 'packed', 'paid'].includes(ful) ? 'dikemas' : ful === 'handed_to_courier' ? 'dikirim' : ['in_transit'].includes(ful) ? 'dikirim' : ful === 'at_destination' ? 'tiba' : ful === 'arriving' ? 'diantar' : ['delivered', 'completed'].includes(ful) ? 'selesai' : ['cancelled', 'delivery_failed'].includes(ful) ? 'dibatalkan' : ['return_requested', 'returned'].includes(ful) ? 'retur' : 'dikemas';
 
   // ————————————————————————— akun —————————————————————————
   const publicAcct = a => ({ username: a.username, name: a.name, email: a.email, phone: a.phone, created: a.created_day, lastLogin: a.last_login, charId: a.char_id });
@@ -177,24 +208,46 @@ module.exports = function mountMarket(app, H, F, CM) {
   const tierOf = pts => [...M.PLUS_TIERS].reverse().find(t => pts >= t.at);
   function stockMap(v) { const m = {}; for (const r of db.prepare("SELECT product, qty, day FROM shop_stock WHERE visitor=? AND product LIKE 'mp:%'").all(v)) m[r.product] = r; return m; }
   const stockOf = (l, sm, day) => { const pr = proto(l); return CM.virtualStock(pr, sm[pr.id], day).qty; };
+  // Harga dinamis (P9): inflasi, gelombang pasokan, event (flash sale/Harbolnas/Ramadan/…), kondisi ekonomi dunia dari save pemain.
+  // Satu fungsi dipakai katalog, keranjang, kuotasi, dan checkout agar harga yang dilihat = harga yang dibayar (server menghitung ulang).
+  const dynCache = new Map();
+  function dynOf(l, day, game) {
+    const key = l.id + ':' + day + ':' + (game?.economy?.inflation ?? '') + ':' + (game?.economy?.consumer ?? ''); let r = dynCache.get(key); if (r) return r;
+    const pm = ECON.priceMult(l, PROD(l.product), day, ECON.econOf(game), null), sale = Math.max(100, ECON.roundPrice(l.sale * pm.mult)), price = Math.max(l.price, sale);
+    r = { sale, price, disc: price > sale ? Math.round((1 - sale / price) * 100) : 0, mult: Math.round(pm.mult * 1000) / 1000, active: pm.event.active, evDisc: pm.event.disc };
+    if (dynCache.size > 20000) dynCache.clear(); dynCache.set(key, r); return r;
+  }
   function card(l, ctx, detail = false) {
-    const p = PROD(l.product), sl = M.SELLER(l.seller), km = kmTo(sl.city, ctx.city);
-    const out = { id: l.id, pid: p.id, name: p.name, brand: p.brand, cat: p.cat, sub: p.sub, price: l.price, sale: l.sale, disc: l.disc, stock: stockOf(l, ctx.sm, ctx.day), sold: l.sold, rating: l.rating, reviews: l.reviews, added: l.added,
+    const p = PROD(l.product), sl = M.SELLER(l.seller), km = kmTo(sl.city, ctx.city), dy = dynOf(l, ctx.day, ctx.game);
+    const out = { id: l.id, pid: p.id, name: p.name, brand: p.brand, cat: p.cat, sub: p.sub, price: dy.price, sale: dy.sale, disc: dy.disc, priceMult: dy.mult, eventIds: dy.active, stock: stockOf(l, ctx.sm, ctx.day), sold: l.sold, rating: l.rating, reviews: l.reviews, added: l.added,
       seller: { id: sl.id, name: sl.name, city: sl.city, rating: sl.rating, official: sl.official }, wish: ctx.wish.has(l.id), etaReg: etaDays(km, 'reguler'), minAge: p.minAge, warranty: l.warranty };
     if (detail) Object.assign(out, { desc: p.desc, weightG: p.weightG, dim: p.dim, variants: p.variants, quality: p.quality, unitQty: p.unitQty, use: p.use, etaEks: etaDays(km, 'ekspres'), km, since: sl.since });
     return out;
   }
-  const ctxOf = (c, city) => ({ day: c.clk.day, city: city || defaultCity(c.v, c.m.id, c.p), sm: stockMap(c.v), wish: new Set(db.prepare('SELECT listing FROM mp_wishlist WHERE visitor=? AND market=?').all(c.v, c.m.id).map(r => r.listing)) });
+  const ctxOf = (c, city) => ({ game: c.p.game, day: c.clk.day, city: city || defaultCity(c.v, c.m.id, c.p), sm: stockMap(c.v), wish: new Set(db.prepare('SELECT listing FROM mp_wishlist WHERE visitor=? AND market=?').all(c.v, c.m.id).map(r => r.listing)) });
   const defaultCity = (v, m, p) => db.prepare('SELECT city FROM mp_addresses WHERE visitor=? AND market=? AND is_default=1').get(v, m)?.city || p.profile.city;
   const norm = s => String(s || '').toLowerCase();
+  // Pasar & event (P9): statistik kompetisi antar marketplace, event aktif, dan aktivitas NPC — semua dihitung server dari hari simulasi dan ekonomi save.
+  app.get('/api/mp/:m/pasar', handle((c, req, res) => {
+    const day = c.clk.day, econ = ECON.econOf(c.p.game), stats = ECON.marketStats(day, econ), sec = c.clk.sec % 86400;
+    res.json({ ok: true, day, market: c.m.id, stats, impact: ECON.worldImpact(day, econ, stats), events: ECON.eventsOn(day, c.m.id, sec), feed: ECON.npcFeed(day, 8),
+      note: 'Harga, event, dan aktivitas pasar mengikuti hari simulasi dan kondisi ekonomi karaktermu. Dampak ke dunia berupa indikator permintaan/harga; belum memengaruhi lapangan kerja secara langsung.' });
+  }, { clock: 'get' }));
   app.get('/api/mp/:m/home', handle((c, req, res) => {
     const ctx = ctxOf(c), ls = M.LISTINGS.filter(l => l.market === c.m.id);
     const cnt = {}; for (const l of ls) { const p = PROD(l.product); cnt[p.cat] = (cnt[p.cat] || 0) + 1; }
+    // Notifikasi pasar (P10): flash sale yang sedang berlangsung dan voucher event baru; kunci unik per marketplace-hari agar tidak dobel.
+    try {
+      const sec = c.clk.sec % 86400, fl = ECON.eventsOn(c.clk.day, c.m.id, sec).find(e => e.kind === 'flash' && e.live);
+      if (fl) CM.notify(c.v, `mp-flash-${c.m.id}-${c.clk.day}`, 'flash', `${fl.label} di ${c.m.name}`, `Diskon sekitar ${Math.round(fl.disc * 100)}% sampai 14:00. Harga sudah tampil di katalog.`, c.clk.abs);
+      const nv = M.VOUCHERS.filter(vc => vc.market === c.m.id && vcState(vc, c).state === 'claimable' && vc.event).length;
+      if (nv) CM.notify(c.v, `mp-vc-${c.m.id}-${c.clk.day}`, 'voucher', `Voucher event tersedia di ${c.m.name}`, `${nv} voucher event bisa diklaim hari ini di halaman Voucher.`, c.clk.abs);
+    } catch (e) { console.error('[market] notif', e.message); }
     const top = (arr, n) => arr.slice(0, n).map(l => card(l, ctx));
     const wishCats = new Set(db.prepare('SELECT listing FROM mp_wishlist WHERE visitor=? AND market=?').all(c.v, c.m.id).map(r => PROD(M.LISTING(r.listing)?.product)?.cat).filter(Boolean));
     const rec = ls.slice().sort((a, b) => (b.rating * 10 + Math.log(b.sold + 1) + (wishCats.has(PROD(b.product).cat) ? 6 : 0)) - (a.rating * 10 + Math.log(a.sold + 1) + (wishCats.has(PROD(a.product).cat) ? 6 : 0)));
     res.json({ ok: true, market: c.m.id, categories: M.CATEGORIES.map(k => ({ id: k.id, label: k.label, count: cnt[k.id] || 0, subs: k.subs.map(([id, label]) => ({ id, label })) })),
-      flash: top(ls.filter(l => l.disc >= 15).sort((a, b) => b.disc - a.disc), 8), best: top(ls.slice().sort((a, b) => b.sold - a.sold), 8), newest: top(ls.slice().sort((a, b) => a.added - b.added), 8), recommended: top(rec, 8),
+      flash: top(ls.filter(l => dynOf(l, ctx.day, ctx.game).disc >= 15).sort((a, b) => dynOf(b, ctx.day, ctx.game).disc - dynOf(a, ctx.day, ctx.game).disc), 8), best: top(ls.slice().sort((a, b) => b.sold - a.sold), 8), newest: top(ls.slice().sort((a, b) => a.added - b.added), 8), recommended: top(rec, 8),
       events: M.EVENTS.filter(e => e.test(c.clk.day)).map(e => e.label), cartCount: db.prepare('SELECT COALESCE(SUM(qty),0) AS n FROM mp_cart WHERE visitor=? AND market=?').get(c.v, c.m.id).n });
   }));
   app.get('/api/mp/:m/products', handle((c, req, res) => {
@@ -202,12 +255,12 @@ module.exports = function mountMarket(app, H, F, CM) {
     const min = Number(q.min) || 0, max = Number(q.max) || 0, rate = Number(q.rating) || 0; let ls = M.LISTINGS.filter(l => l.market === c.m.id);
     ls = ls.filter(l => {
       const p = PROD(l.product), sl = M.SELLER(l.seller);
-      if (q.cat && p.cat !== q.cat) return false; if (q.sub && p.sub !== q.sub) return false; if (min && l.sale < min) return false; if (max && l.sale > max) return false; if (rate && l.rating < rate) return false; if (q.city && sl.city !== q.city) return false; if (q.disc === '1' && !l.disc) return false;
+      if (q.cat && p.cat !== q.cat) return false; if (q.sub && p.sub !== q.sub) return false; const dsale = dynOf(l, ctx.day, ctx.game).sale; if (min && dsale < min) return false; if (max && dsale > max) return false; if (rate && l.rating < rate) return false; if (q.city && sl.city !== q.city) return false; if (q.disc === '1' && !l.disc) return false;
       if (tokens.length) { const hay = norm(`${p.name} ${p.brand} ${M.SUBCAT[p.sub].label} ${M.CATEGORIES.find(k => k.id === p.cat).label} ${sl.name}`); if (!tokens.every(t => hay.includes(t))) return false; }
       return true;
     });
     const wc = new Set(db.prepare('SELECT listing FROM mp_wishlist WHERE visitor=? AND market=?').all(c.v, c.m.id).map(r => PROD(M.LISTING(r.listing)?.product)?.cat).filter(Boolean));
-    const sorters = { murah: (a, b) => a.sale - b.sale, mahal: (a, b) => b.sale - a.sale, populer: (a, b) => b.sold - a.sold, terlaris: (a, b) => b.sold - a.sold, terbaru: (a, b) => a.added - b.added, rating: (a, b) => b.rating - a.rating || b.reviews - a.reviews,
+    const sorters = { murah: (a, b) => dynOf(a, ctx.day, ctx.game).sale - dynOf(b, ctx.day, ctx.game).sale, mahal: (a, b) => dynOf(b, ctx.day, ctx.game).sale - dynOf(a, ctx.day, ctx.game).sale, populer: (a, b) => b.sold - a.sold, terlaris: (a, b) => b.sold - a.sold, terbaru: (a, b) => a.added - b.added, rating: (a, b) => b.rating - a.rating || b.reviews - a.reviews,
       rekomendasi: (a, b) => (b.rating * 10 + Math.log(b.sold + 1) + (wc.has(PROD(b.product).cat) ? 6 : 0)) - (a.rating * 10 + Math.log(a.sold + 1) + (wc.has(PROD(a.product).cat) ? 6 : 0)) };
     ls.sort(sorters[q.sort] || sorters.populer);
     const size = M.RULES.pageSize, page = Math.max(1, parseInt(q.page) || 1), total = ls.length, pages = Math.max(1, Math.ceil(total / size));
@@ -230,7 +283,7 @@ module.exports = function mountMarket(app, H, F, CM) {
   function cartView(c) {
     const ctx = ctxOf(c), rows = db.prepare('SELECT listing, variant, qty, selected FROM mp_cart WHERE visitor=? AND market=? ORDER BY created').all(c.v, c.m.id), out = [];
     for (const r of rows) { const l = M.LISTING(r.listing); if (!l) continue; const p = PROD(l.product), vr = p.variants.find(x => x.id === r.variant) || p.variants[0], stock = stockOf(l, ctx.sm, ctx.day);
-      out.push({ listing: l.id, variant: vr.id, variantLabel: p.variants.length > 1 ? vr.label : null, qty: r.qty, selected: !!r.selected, name: p.name, brand: p.brand, sub: p.sub, cat: p.cat, unit: l.sale + vr.price, normal: l.price + vr.price, disc: l.disc, seller: M.SELLER(l.seller).name, sellerId: l.seller, stock, ok: stock >= r.qty, maxQty: Math.min(M.RULES.maxQty, stock), warn: stock <= 0 ? 'Stok habis' : stock < r.qty ? `Stok tersisa ${stock}` : null }); }
+      out.push({ listing: l.id, variant: vr.id, variantLabel: p.variants.length > 1 ? vr.label : null, qty: r.qty, selected: !!r.selected, name: p.name, brand: p.brand, sub: p.sub, cat: p.cat, unit: dynOf(l, ctx.day, ctx.game).sale + vr.price, normal: dynOf(l, ctx.day, ctx.game).price + vr.price, disc: dynOf(l, ctx.day, ctx.game).disc, seller: M.SELLER(l.seller).name, sellerId: l.seller, stock, ok: stock >= r.qty, maxQty: Math.min(M.RULES.maxQty, stock), warn: stock <= 0 ? 'Stok habis' : stock < r.qty ? `Stok tersisa ${stock}` : null }); }
     const sel = out.filter(x => x.selected && x.stock > 0 && x.ok);
     return { items: out, subtotal: sel.reduce((s, x) => s + x.unit * x.qty, 0), selectedCount: sel.length, count: out.reduce((s, x) => s + x.qty, 0) };
   }
@@ -304,18 +357,20 @@ module.exports = function mountMarket(app, H, F, CM) {
     const addr = db.prepare('SELECT * FROM mp_addresses WHERE id=? AND visitor=? AND market=?').get(b.address, v, m.id) || db.prepare('SELECT * FROM mp_addresses WHERE visitor=? AND market=? AND is_default=1').get(v, m.id);
     if (!addr) throw Object.assign(new Error(), { user: 'Tambahkan alamat pengiriman.' });
     const ship = b.ship === 'ekspres' ? 'ekspres' : 'reguler', sm = stockMap(v);
+    const cr = M.COURIER(b.courier || 'jnex'); if (!cr) throw Object.assign(new Error(), { user: 'Ekspedisi tidak dikenal.' });
     const bySeller = new Map();
     for (const r of rows) {
       const l = M.LISTING(r.listing); if (!l || l.market !== m.id) throw Object.assign(new Error(), { user: 'Ada produk yang tidak lagi dijual.' }); const pr = PROD(l.product), vr = pr.variants.find(x => x.id === r.variant) || pr.variants[0];
       if (pr.minAge && age < pr.minAge) throw Object.assign(new Error(), { user: `${pr.name} untuk usia ${pr.minAge}+ (usia karakter: ${age}).` });
       const stock = stockOf(l, sm, clk.day); if (r.qty > stock) throw Object.assign(new Error(), { user: stock <= 0 ? `${pr.name} habis.` : `${pr.name}: stok tersisa ${stock}, di keranjang ${r.qty}.` });
-      const unit = l.sale + vr.price, base = l.price + vr.price;
+      const dy = dynOf(l, clk.day, p.game), unit = dy.sale + vr.price, base = dy.price + vr.price;
       if (!bySeller.has(l.seller)) bySeller.set(l.seller, []);
       bySeller.get(l.seller).push({ id: 'mp:' + l.id, listing: l.id, name: pr.name + (pr.variants.length > 1 ? ` (${vr.label})` : ''), variant: vr.id, qty: r.qty, price: unit, total: unit * r.qty, normalTotal: base * r.qty, cat: pr.cat, weightG: pr.weightG * r.qty });
     }
     const orders = [...bySeller.entries()].map(([sid, lines]) => {
       const sl = M.SELLER(sid), km = kmTo(sl.city, addr.city), sub = lines.reduce((s, l) => s + l.total, 0), wt = lines.reduce((s, l) => s + l.weightG, 0);
-      return { seller: sl, lines, sub, km, shipping: shipFee(m, km, wt, ship), discount: 0, shipDisc: 0, cashback: 0, svc: 0, cod: 0, vouchers: [] };
+      const why = courierWhy(cr, km, wt), cerr = why ? `${cr.name} tidak dapat mengirim pesanan dari ${sl.name}: ${why.toLowerCase()}. Pilih ekspedisi lain.` : null; if (cerr && forPay) throw Object.assign(new Error(), { user: cerr });
+      return { cerr, seller: sl, lines, sub, km, wt, shipping: shipFee(m, km, wt, ship, cr), discount: 0, shipDisc: 0, cashback: 0, svc: 0, cod: 0, vouchers: [] };
     });
     // voucher: validasi aturan tumpukan, syarat, dan hitung potongan secara transparan
     const codes = [...new Set((Array.isArray(b.vouchers) ? b.vouchers : []).map(x => String(x).toUpperCase()))]; const used = { discount: 0, freeship: 0, cashback: 0 }; const vouchers = [];
@@ -340,10 +395,11 @@ module.exports = function mountMarket(app, H, F, CM) {
     const method = String(b.method || ''); if (!m.methods.includes(method)) throw Object.assign(new Error(), { user: method ? `${m.name} tidak menerima metode ini.` : 'Pilih metode pembayaran.' });
     orders.forEach((o, i) => { o.svc = svcA[i]; if (method === 'cod') o.cod = M.RULES.codFee; o.total = Math.max(0, o.sub - o.discount + o.shipping - o.shipDisc + o.svc + o.cod); });
     const total = orders.reduce((s, o) => s + o.total, 0);
-    return { orders, addr, ship, vouchers, method, subtotal: orders.reduce((s, o) => s + o.sub, 0), discount: orders.reduce((s, o) => s + o.discount, 0), shipping: orders.reduce((s, o) => s + o.shipping, 0), shipDisc: orders.reduce((s, o) => s + o.shipDisc, 0), svc: svcTotal, cod: orders.reduce((s, o) => s + o.cod, 0), cashback: orders.reduce((s, o) => s + o.cashback, 0), total, age };
+    return { market: m.id, courierError: orders.find(o => o.cerr)?.cerr || null, orders, addr, ship, courier: cr, vouchers, method, subtotal: orders.reduce((s, o) => s + o.sub, 0), discount: orders.reduce((s, o) => s + o.discount, 0), shipping: orders.reduce((s, o) => s + o.shipping, 0), shipDisc: orders.reduce((s, o) => s + o.shipDisc, 0), svc: svcTotal, cod: orders.reduce((s, o) => s + o.cod, 0), cashback: orders.reduce((s, o) => s + o.cashback, 0), total, age };
   }
-  const quoteOut = (g, m, clk) => ({ method: g.method, ship: g.ship, address: { id: g.addr.id, label: g.addr.label, city: g.addr.city, address: g.addr.address },
-    orders: g.orders.map(o => ({ seller: o.seller.name, sellerCity: o.seller.city, km: o.km, eta: etaDays(o.km, g.ship), lines: o.lines.map(l => ({ name: l.name, qty: l.qty, price: l.price, total: l.total })), sub: o.sub, discount: o.discount, shipping: o.shipping, shipDisc: o.shipDisc, svc: o.svc, cod: o.cod, cashback: o.cashback, total: o.total })),
+  const courierOpts = g => M.COURIERS.map(cr => { const bad = g.orders.map(o => courierWhy(cr, o.km, o.wt)).find(Boolean); return { id: cr.id, name: cr.name, tag: cr.tag, blurb: cr.blurb, q: cr.q, color: cr.color, maxKg: cr.maxKg, maxKm: cr.maxKm, available: !bad, why: bad || null, shipping: g.orders.reduce((s, o) => s + shipFee(M.MARKET(g.market), o.km, o.wt, g.ship, cr), 0), eta: Math.max(...g.orders.map(o => etaFor(o.km, g.ship, cr))) }; });
+  const quoteOut = (g, m, clk) => ({ method: g.method, ship: g.ship, courier: g.courier.id, couriers: courierOpts(g), courierError: g.courierError, address: { id: g.addr.id, label: g.addr.label, city: g.addr.city, address: g.addr.address },
+    orders: g.orders.map(o => ({ seller: o.seller.name, sellerCity: o.seller.city, km: o.km, eta: etaFor(o.km, g.ship, g.courier), lines: o.lines.map(l => ({ name: l.name, qty: l.qty, price: l.price, total: l.total })), sub: o.sub, discount: o.discount, shipping: o.shipping, shipDisc: o.shipDisc, svc: o.svc, cod: o.cod, cashback: o.cashback, total: o.total })),
     totals: { subtotal: g.subtotal, discount: g.discount, shipping: g.shipping, shipDisc: g.shipDisc, svc: g.svc, cod: g.cod, total: g.total, cashback: g.cashback }, vouchers: g.vouchers, svcRule: `${(m.feePct * 100).toLocaleString('id-ID')}% dari belanja setelah diskon (min ${fmtRp(m.feeMin)}, maks ${fmtRp(m.feeMax)})`,
     paylater: m.paylater ? plQuotes(g.total, m) : null });
   app.post('/api/mp/:m/quote', handle((c, req, res) => { const g = quoteGroup(c, req.body || {}); res.json({ ok: true, ...quoteOut(g, c.m, c.clk) }); }, { clock: 'post' }));
@@ -488,14 +544,14 @@ module.exports = function mountMarket(app, H, F, CM) {
       const created = []; let adjs = [];
       g.orders.forEach((o, i) => {
         const store = CM.EXT.store('mp-' + o.seller.id), oid = rid('ord');
-        const fees = [{ code: 'shipping', label: `Ongkos kirim ${GRADE[g.ship]} (${o.km ? o.km + ' km' : 'satu kota'})`, amount: o.shipping }, { code: 'service', label: `Biaya layanan ${m.name}`, amount: o.svc }]; if (o.cod) fees.push({ code: 'cod', label: 'Biaya COD', amount: o.cod });
+        const fees = [{ code: 'shipping', label: `Ongkos kirim ${g.courier.name} ${GRADE[g.ship]} (${o.km ? o.km + ' km' : 'satu kota'})`, amount: o.shipping }, { code: 'service', label: `Biaya layanan ${m.name}`, amount: o.svc }]; if (o.cod) fees.push({ code: 'cod', label: 'Biaya COD', amount: o.cod });
         const discounts = []; if (o.discount) discounts.push({ code: 'voucher', label: o.vouchers.filter(x => M.VOUCHER(m.id, x).kind !== 'freeship' && M.VOUCHER(m.id, x).kind !== 'cashback').join(' + ') || 'Voucher', amount: -o.discount, type: 'voucher' }); if (o.shipDisc) discounts.push({ code: 'freeship', label: 'Gratis ongkir (voucher)', amount: -o.shipDisc, type: 'voucher' });
-        const q = { store, mode: 'parcel', lines: o.lines.map(l => ({ id: l.id, name: l.name, variant: l.variant, qty: l.qty, price: l.price, total: l.total })), sub: o.sub, fees, discounts, discount: o.discount + o.shipDisc, total: o.total, km: o.km, loc: { id: g.addr.id, label: g.addr.label, city: g.addr.city }, ship: g.ship, voucher: null, totalQty: o.lines.reduce((s, l) => s + l.qty, 0), maxPrep: 0, age: g.age };
+        const q = { store, mode: 'parcel', lines: o.lines.map(l => ({ id: l.id, name: l.name, variant: l.variant, qty: l.qty, price: l.price, total: l.total })), sub: o.sub, fees, discounts, discount: o.discount + o.shipDisc, total: o.total, km: o.km, loc: { id: g.addr.id, label: g.addr.label, city: g.addr.city }, ship: g.ship, courier: { speed: g.courier.speed, disrupt: g.courier.disrupt, fail: g.courier.fail }, voucher: null, totalQty: o.lines.reduce((s, l) => s + l.qty, 0), maxPrep: 0, age: g.age };
         const lbl = `${store.name}: ${q.lines.map(l => `${l.qty}× ${l.name}`).join(', ')}`;
         const t = addTx(v, { idem: `${b.idem}:${i}`, kind: 'belanja', status: cod ? 'pending' : 'berhasil', amount: -o.total, method: cod ? 'cod' : src.type === 'paylater' ? 'paylater' : (src.kind || pay), src: src.type === 'cash' ? 'cash' : src.type === 'paylater' ? 'paylater' : src.acct.id, merchant: m.id, label: cod ? lbl : `${lbl} · ${src.label}`, reason: cod ? 'Dibayar tunai saat pesanan diterima' : null, day: clk.day, sec: clk.sec });
         const srcJson = JSON.stringify(src.type === 'cash' ? { type: 'cash' } : src.type === 'paylater' ? { type: 'paylater', market: m.id } : { type: 'acct', id: src.acct.id });
         CM.insertOrder(p, q, { oid, idem: `${b.idem}:${i}`, clk, t, method: cod ? 'cod' : src.type === 'paylater' ? 'paylater' : (src.kind || pay), methodLabel: cod ? 'Bayar di tempat (COD)' : src.label, srcJson, payStatus: cod ? 'cod_pending' : 'paid' });
-        db.prepare('INSERT INTO mp_order_meta (order_id, visitor, market, seller, group_id, cashback, svc_fee, vouchers) VALUES (?,?,?,?,?,?,?,?)').run(oid, v, m.id, o.seller.id, gid, o.cashback, o.svc, JSON.stringify(o.vouchers));
+        db.prepare('INSERT INTO mp_order_meta (order_id, visitor, market, seller, group_id, cashback, svc_fee, vouchers, courier) VALUES (?,?,?,?,?,?,?,?,?)').run(oid, v, m.id, o.seller.id, gid, o.cashback, o.svc, JSON.stringify(o.vouchers), g.courier.id);
         if (src.type !== 'paylater' && !cod) { const a = applyDebit(p, src, o.total, clk, src.kind, 'belanja', lbl, t); if (a) adjs.push(a); }
         CM.notify(v, oid, 'paid', cod ? 'Pesanan dibuat (COD)' : 'Pembayaran berhasil', cod ? `${lbl}. Bayar tunai saat pesanan diterima.` : `${fmtRp(o.total)} dibayar lewat ${src.label}.`, clk.abs);
         created.push({ oid, t });
@@ -547,5 +603,7 @@ module.exports = function mountMarket(app, H, F, CM) {
     hist(meta.visitor, meta.market, at, 'paylater', `Refund ${fmtRp(amount)} pesanan ${o.id}: tagihan PayLater dikurangi.`);
   };
 
-  return { migrate, reset };
+  // Info listing untuk modul chat/ulasan (stok nyata per pemain, jarak, harga katalog).
+  const info = (v, lid, day, city) => { const l = M.LISTING(lid); if (!l) return null; const p = PROD(l.product), sl = M.SELLER(l.seller); return { listing: l, prod: p, seller: sl, market: M.MARKET(l.market), stock: stockOf(l, stockMap(v), day), km: kmTo(sl.city, city), eta: etaFor(kmTo(sl.city, city), 'reguler', null), fee: shipFee(M.MARKET(l.market), kmTo(sl.city, city), p.weightG, 'reguler', null) }; };
+  return { migrate, reset, info };
 };

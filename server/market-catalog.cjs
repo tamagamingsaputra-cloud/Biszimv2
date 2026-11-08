@@ -274,4 +274,14 @@ const RULES = {
   paylater: { tenors: [1, 3, 6, 12], graceDays: 3, lateFee: 25000, lateRateMonth: 0.02, minAge: 18, limitByScore: [[850, 15000000], [750, 8000000], [650, 4000000], [580, 2000000], [520, 1000000]], restrictAfter: 1, blockAfter: 3, scorePenalty: -35, scoreOnTime: 6 },
 };
 
-module.exports = { CATEGORIES, SUBCAT, PRODUCTS, MARKETS, MARKET, SELLERS, SELLER, LISTINGS, LISTING, EVENTS, EVENT, VOUCHERS, VOUCHER, PLUS_TIERS, RULES, CITIES, hf, dom, doy };
+// Ekspedisi fiktif. tariff = pengali ongkir, speed = pengali lama kirim (kecil = cepat), maxKg = kapasitas per paket, maxKm = jangkauan,
+// disrupt/fail = pengali peluang gangguan/gagal kirim (kualitas layanan), q = skor kualitas 1–5 untuk tampilan.
+const COURIERS = [
+  { id: 'fastexpress', name: 'FastExpress', tag: 'Kilat', blurb: 'Paling cepat, tarif tertinggi, armada udara terbatas.', tariff: 1.25, speed: 0.6, maxKg: 20, maxKm: 4000, disrupt: 0.7, fail: 0.5, q: 5, color: '#C2410C', icon: 'truck' },
+  { id: 'jnex', name: 'JNEX', tag: 'Andal', blurb: 'Jaringan terluas, tarif dan kecepatan seimbang.', tariff: 1, speed: 1, maxKg: 30, maxKm: 4000, disrupt: 1, fail: 1, q: 4, color: '#1D4ED8', icon: 'truck' },
+  { id: 'sicepatx', name: 'SiCepatX', tag: 'Hemat cepat', blurb: 'Tarif lebih murah dengan jalur darat padat; jangkauan sedang.', tariff: 0.92, speed: 0.85, maxKg: 25, maxKm: 1800, disrupt: 1.2, fail: 1.2, q: 3, color: '#B91C1C', icon: 'truck' },
+  { id: 'cargomax', name: 'CargoMax', tag: 'Barang berat', blurb: 'Kapasitas besar untuk barang berat, pengiriman lebih lama.', tariff: 0.85, speed: 1.5, maxKg: 300, maxKm: 4000, disrupt: 1.1, fail: 0.9, q: 3, color: '#4D7C0F', icon: 'box' },
+  { id: 'ecodelivery', name: 'EcoDelivery', tag: 'Ramah lingkungan', blurb: 'Termurah dan hati-hati, tetapi lambat, jangkauan dekat, dan paket kecil.', tariff: 0.7, speed: 1.8, maxKg: 10, maxKm: 900, disrupt: 0.8, fail: 0.6, q: 4, color: '#047857', icon: 'leaf' },
+];
+const COURIER = id => COURIERS.find(c => c.id === id);
+module.exports = { COURIERS, COURIER, CATEGORIES, SUBCAT, PRODUCTS, MARKETS, MARKET, SELLERS, SELLER, LISTINGS, LISTING, EVENTS, EVENT, VOUCHERS, VOUCHER, PLUS_TIERS, RULES, CITIES, hf, dom, doy };

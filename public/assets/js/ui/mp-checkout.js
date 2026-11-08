@@ -14,7 +14,7 @@ export async function openMpCheckout({ market, onDone }) {
   const [me, vs] = await Promise.all([MP.rd(id, 'me'), MP.rd(id, 'vouchers')]);
   if (!me.ok) { toast(me.error, 'error'); return; }
   const mine = (vs.vouchers || []).filter(v => v.state === 'claimed');
-  let st = { ship: 'reguler', address: me.addresses.find(a => a.isDefault)?.id || me.addresses[0]?.id, vouchers: [], method: null, source: null, tenor: 3, phase: 'form', idem: MP.newIdem('mpo'), q: null, err: null, res: null };
+  let st = { courier: 'jnex', ship: 'reguler', address: me.addresses.find(a => a.isDefault)?.id || me.addresses[0]?.id, vouchers: [], method: null, source: null, tenor: 3, phase: 'form', idem: MP.newIdem('mpo'), q: null, err: null, res: null };
   const d = openDialog(`<div class="dlg-h"><h2>Checkout · ${esc(m.name)}</h2><button class="icon-btn" data-close aria-label="Tutup">${icon('x')}</button></div><div class="dlg-b checkout" data-co></div>`);
   const body = d.querySelector('[data-co]');
 
@@ -36,7 +36,7 @@ export async function openMpCheckout({ market, onDone }) {
   };
   const needSrc = () => st.method && !['cod', 'paylater'].includes(st.method);
   const needPin = () => ['saldo', 'transfer', 'wallet', 'qris', 'credit', 'debit', 'paylater'].includes(st.method);
-  async function requote() { const r = await MP.quote(id, { ship: st.ship, address: st.address, vouchers: st.vouchers, method: st.method || 'cod' }); if (r.ok) { st.q = r; st.err = null; } else { st.err = r.error; } }
+  async function requote() { const r = await MP.quote(id, { ship: st.ship, courier: st.courier, address: st.address, vouchers: st.vouchers, method: st.method || 'cod' }); if (r.ok) { st.q = r; st.err = r.courierError || null; } else { st.err = r.error; } }
   const canPay = () => st.phase === 'form' && st.q && !st.err && st.method && (!needSrc() || st.source) && (!needPin() || F.V?.pinSet);
 
   function resultHtml() {
@@ -54,6 +54,7 @@ export async function openMpCheckout({ market, onDone }) {
       <fieldset class="co-methods" ${locked ? 'disabled' : ''}><legend>Alamat pengiriman</legend>
         <select class="input" name="address">${me.addresses.map(a => `<option value="${a.id}" ${a.id === st.address ? 'selected' : ''}>${esc(a.label)} — ${esc(a.address)}, ${esc(a.city)}</option>`).join('')}</select></fieldset>
       <fieldset class="co-methods" ${locked ? 'disabled' : ''}><legend>Pengiriman</legend><div class="seg-tabs">${Object.keys(SHIP).map(k => `<label class="pm"><input type="radio" name="ship" value="${k}" ${st.ship === k ? 'checked' : ''}><span><b>${SHIP[k]}</b><small>${k === 'ekspres' ? 'Lebih cepat, ongkir lebih tinggi' : 'Ongkir hemat'}</small></span></label>`).join('')}</div></fieldset>
+      ${q?.couriers ? `<fieldset class="co-methods" ${locked ? 'disabled' : ''}><legend>Ekspedisi</legend><div class="cour-list">${q.couriers.map(c => `<label class="pm cour ${c.available ? '' : 'off'}"><input type="radio" name="courier" value="${c.id}" ${st.courier === c.id ? 'checked' : ''} ${c.available ? '' : 'disabled'}><span class="ico" style="background:${c.color}1A;color:${c.color}">${icon(c.id === 'cargomax' ? 'box' : c.id === 'ecodelivery' ? 'leaf' : c.id === 'fastexpress' ? 'bike' : 'van')}</span><span style="flex:1;min-width:0"><b>${esc(c.name)}</b> <span class="chip">${esc(c.tag)}</span><small>${c.available ? `${rp(c.shipping)} · ${c.eta} hari · maks ${c.maxKg} kg · jangkauan ${c.maxKm} km` : esc(c.why)}</small><small class="stars">Kualitas layanan ${'●'.repeat(c.q)}${'○'.repeat(5 - c.q)}</small></span></label>`).join('')}</div></fieldset>` : ''}
       ${q ? q.orders.map(o => `<div class="panel"><div class="panel-b"><b>${esc(o.seller)}</b> <span class="muted sm">· ${esc(o.sellerCity)} · estimasi ${o.eta} hari</span>
         <table class="sum">${o.lines.map(l => `<tr><td>${l.qty}× ${esc(l.name)}</td><td>${rp(l.total)}</td></tr>`).join('')}<tr class="muted"><td>Ongkir ${o.shipDisc ? '(setelah gratis ongkir)' : ''}</td><td>${rp(o.shipping - o.shipDisc)}</td></tr></table></div></div>`).join('') : ''}
       ${mine.length ? `<fieldset class="co-methods" ${locked ? 'disabled' : ''}><legend>Voucher (${esc(m.name)} — aturan tumpukan ditentukan server)</legend>${mine.map(v => `<label class="pm"><input type="checkbox" name="vc" value="${v.code}" ${st.vouchers.includes(v.code) ? 'checked' : ''}><span><b>${esc(v.label)}</b><small>${esc(v.code)} · min. belanja ${rp(v.min)}</small></span></label>`).join('')}</fieldset>` : `<p class="mp-note">${icon('ticket')}<span>Belum ada voucher yang diklaim. Klaim di halaman Voucher.</span></p>`}
@@ -71,11 +72,12 @@ export async function openMpCheckout({ market, onDone }) {
     const n = e.target.name; if (n === 'pin') return; // jangan render ulang saat PIN selesai diketik (akan menghapus isian)
     if (n === 'address') st.address = e.target.value;
     if (n === 'ship') st.ship = e.target.value;
+    if (n === 'courier') st.courier = e.target.value;
     if (n === 'vc') st.vouchers = [...body.querySelectorAll('[name=vc]:checked')].map(x => x.value);
     if (n === 'm') { st.method = e.target.value; const o = payOpts().find(x => x.key === st.method); st.source = o?.sources?.length === 1 ? o.sources[0].id : null; }
     if (n === 's') st.source = e.target.value;
     if (n === 'tenor') st.tenor = Number(e.target.value);
-    if (['address', 'ship', 'vc', 'm'].includes(n)) await requote();
+    if (['address', 'ship', 'courier', 'vc', 'm'].includes(n)) await requote();
     draw();
   });
   body.addEventListener('input', e => { if (e.target.name === 'pin') e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6); });
@@ -85,7 +87,7 @@ export async function openMpCheckout({ market, onDone }) {
     const pin = body.querySelector('[name=pin]')?.value || '';
     if (needPin() && !/^\d{6}$/.test(pin)) { toast('Masukkan PIN 6 digit.', 'error'); return; }
     st.phase = 'proc'; draw();
-    const r = await MP.checkout(id, { idem: st.idem, ship: st.ship, address: st.address, vouchers: st.vouchers, method: st.method, source: st.source, tenor: st.tenor, pin });
+    const r = await MP.checkout(id, { idem: st.idem, ship: st.ship, courier: st.courier, address: st.address, vouchers: st.vouchers, method: st.method, source: st.source, tenor: st.tenor, pin });
     st.res = r; st.phase = 'done';
     if (r.ok) { if (['saldo', 'transfer', 'wallet', 'qris', 'credit', 'debit'].includes(st.method)) E.recordExpense?.('belanja', r.total); try { onDone?.(r); } catch (err) { console.error(err); } }
     draw();

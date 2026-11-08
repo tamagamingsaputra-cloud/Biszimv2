@@ -11,3 +11,6 @@ Empat marketplace fiktif (Shopindo, LazaMall, Tokomart, BelanjaPlus) di `marketp
 
 Tes: `npm run test:market` (25 tes HTTP nyata). Rute: `/api/mp/launcher`, `/api/mp/:market/*`.
 Prompt 5–11 belum dikerjakan.
+
+## v7.4.0 — Harga dinamis & Pasar (P9)
+`dynOf(l, day, game)` di `server/market.cjs` menghitung harga hidup dari `mp-economy.cjs` (inflasi, gelombang pasokan, event/flash sale). Dipakai katalog, urutan harga, filter, keranjang, kuotasi, dan checkout sehingga harga tampil = harga dibayar; server selalu menghitung ulang. `GET /api/mp/:m/pasar` mengembalikan statistik kompetisi, event aktif, dampak dunia, dan kabar NPC (tab "Pasar").
