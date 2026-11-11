@@ -221,6 +221,8 @@ export function advanceSeconds(secs) {
 }
 export const liveActive = () => !!S.creator?.live;
 export function stop() { if (timer) clearInterval(timer); timer = null; }
+/** Preferensi tampilan/suara mode 3D (hanya presentasi). Disimpan di blob save yang sudah ada (settings.w3d), bukan localStorage. */
+export function setPref3D(patch) { S.settings.w3d = { ...(S.settings.w3d || {}), ...patch }; save(); }
 export function setPaused(p) { S.settings.paused = !!p; save(); start(); emit('change'); emit('clock', clockNow()); }
 /** Kecepatan dalam detik game per detik nyata; hanya nilai dari konfigurasi SPEEDS yang diterima. */
 export function setRate(rate) {

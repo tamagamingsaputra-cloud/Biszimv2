@@ -59,25 +59,41 @@ for (let bi = 0; bi < T.nx; bi++) for (let bj = 0; bj < T.nz; bj++) {
 const park = BY_ID.park; park.pond = { x: park.bx + 6.5, z: park.bz + 6.2 }; for (let x = park.bx + 5; x < park.bx + 8; x++) for (let z = park.bz + 5; z < park.bz + 7; z++) if (inWorld(x, z)) grid[gi(x, z)] = 0;
 for (const b of BUILDINGS) if (b.door) grid[gi(Math.floor(b.door.x), Math.floor(b.door.z))] = 1;
 
-/** A* 8 arah tanpa memotong sudut. Mengembalikan daftar titik tengah-tile [{x,z}] (tanpa titik awal) atau null. */
+/** Apakah lingkaran (x,z,r) tidak menyentuh tile terhalang? (tabrakan nyata untuk karakter, bukan sekadar titik tengah) */
+export function clearAt(x, z, r = 0.28) {
+  for (let cx = Math.floor(x - r); cx <= Math.floor(x + r); cx++) for (let cz = Math.floor(z - r); cz <= Math.floor(z + r); cz++) {
+    if (walkable(cx, cz)) continue; const nx = Math.max(cx, Math.min(x, cx + 1)), nz = Math.max(cz, Math.min(z, cz + 1)); if (Math.hypot(x - nx, z - nz) < r) return false;
+  } return true;
+}
+/** Garis pandang bebas hambatan bagi lingkaran berjari-jari r. */
+export function losClear(ax, az, bx, bz, r = 0.28) { const L = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.ceil(L / 0.15)); for (let k = 0; k <= n; k++) if (!clearAt(ax + (bx - ax) * k / n, az + (bz - az) * k / n, r)) return false; return true; }
+/** Tile walkable terdekat secara EUKLIDES dari titik sebenarnya (bukan urutan cincin). */
+function nearest(x, z) { const fx = Math.floor(x), fz = Math.floor(z); let best = null, bd = Infinity; for (let r = 0; r < 10; r++) { for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) { if (Math.max(Math.abs(dx), Math.abs(dz)) !== r || !walkable(fx + dx, fz + dz)) continue; const d = Math.hypot(fx + dx + 0.5 - x, fz + dz + 0.5 - z); if (d < bd) { bd = d; best = { x: fx + dx, z: fz + dz }; } } if (best && r >= Math.ceil(bd)) break; } return best; }
+
+/** A* 8 arah tanpa memotong sudut + penghalusan jalur (string pulling) memakai garis pandang berjari-jari.
+ *  Mengembalikan daftar titik [{x,z}] (tanpa titik awal) atau null. Titik akhir = titik yang diketuk bila bebas hambatan,
+ *  jika tidak = tengah tile walkable terdekat (secara euklides). */
 export function findPath(sx, sz, tx, tz) {
-  let s = { x: Math.floor(sx), z: Math.floor(sz) }, g = { x: Math.floor(tx), z: Math.floor(tz) };
-  if (!walkable(g.x, g.z)) { g = nearest(g.x, g.z); if (!g) return null; } if (!walkable(s.x, s.z)) { s = nearest(s.x, s.z); if (!s) return null; }
-  const key = (x, z) => z * 4096 + x, open = new Map(), closed = new Set(), came = new Map(), gs = new Map();
+  let s = { x: Math.floor(sx), z: Math.floor(sz) }, g = { x: Math.floor(tx), z: Math.floor(tz) }, exact = true;
+  if (!walkable(g.x, g.z)) { g = nearest(tx, tz); exact = false; if (!g) return null; } if (!walkable(s.x, s.z)) { s = nearest(sx, sz); if (!s) return null; }
+  const key = (x, z) => (z - T.oz) * GW + (x - T.ox), open = new Map(), closed = new Set(), came = new Map(), gs = new Map();
   const h = (x, z) => { const dx = Math.abs(x - g.x), dz = Math.abs(z - g.z); return Math.max(dx, dz) + 0.414 * Math.min(dx, dz) + (isRoad(x, z) ? 0 : 0.25); };
   const sk = key(s.x, s.z); gs.set(sk, 0); open.set(sk, { x: s.x, z: s.z, f: h(s.x, s.z) });
-  let n = 0;
+  let n = 0, raw = null;
   while (open.size && n++ < 6000) {
     let cur = null, ck = 0; for (const [k, v] of open) if (!cur || v.f < cur.f) { cur = v; ck = k; } open.delete(ck); closed.add(ck);
-    if (cur.x === g.x && cur.z === g.z) { const out = []; let k = ck; while (k !== sk) { const p = came.get(k); out.push({ x: (k % 4096) + 0.5, z: Math.floor(k / 4096) + 0.5 }); k = p; } return out.reverse(); }
+    if (cur.x === g.x && cur.z === g.z) { const out = []; let k = ck; while (k !== sk) { const p = came.get(k); out.push({ x: (k % GW) + T.ox + 0.5, z: Math.floor(k / GW) + T.oz + 0.5 }); k = p; } raw = out.reverse(); break; }
     for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
       if (!dx && !dz) continue; const nx = cur.x + dx, nz = cur.z + dz; if (!walkable(nx, nz)) continue; if (dx && dz && (!walkable(cur.x + dx, cur.z) || !walkable(cur.x, cur.z + dz))) continue;
       const k = key(nx, nz); if (closed.has(k)) continue; const cost = gs.get(ck) + (dx && dz ? 1.414 : 1) + (isRoad(nx, nz) ? 0 : 0.3);
       if (cost < (gs.get(k) ?? Infinity)) { gs.set(k, cost); came.set(k, ck); open.set(k, { x: nx, z: nz, f: cost + h(nx, nz) }); }
     }
   }
-  return null;
+  if (!raw) return null;
+  if (exact && raw.length && clearAt(tx, tz)) raw[raw.length - 1] = { x: tx, z: tz }; // berhenti tepat di titik yang diketuk
+  const pts = [{ x: sx, z: sz }, ...raw], out = []; let i = 0;
+  while (i < pts.length - 1) { let j = pts.length - 1; while (j > i + 1 && !losClear(pts[i].x, pts[i].z, pts[j].x, pts[j].z)) j--; out.push(pts[j]); i = j; }
+  return out;
 }
-function nearest(x, z) { for (let r = 1; r < 8; r++) for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) if (Math.max(Math.abs(dx), Math.abs(dz)) === r && walkable(x + dx, z + dz)) return { x: x + dx, z: z + dz }; return null; }
 // simpul persimpangan untuk pejalan kaki & kendaraan
 export const nodes = []; for (let i = 0; i <= T.nx; i++) for (let j = 0; j <= T.nz; j++) nodes.push({ i, j, x: T.ox + i * T.pitch + 1, z: T.oz + j * T.pitch + 1 });

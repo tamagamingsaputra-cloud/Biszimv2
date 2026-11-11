@@ -1,4 +1,4 @@
-# BizSim 3D — Fase 0/1 (audit, arsitektur) + Fase 2/3 awal (Kampung 3D layar penuh) — v7.6.0
+# BizSim 3D — Fase 0/1 (audit, arsitektur) + Fase 2/3 awal (Kampung 3D layar penuh) — v7.6.2
 
 ## 1. Keputusan teknologi (ADR-001)
 - **Three.js r160** (MIT), file tunggal `public/assets/vendor/three/three.module.min.js` (~670 KB, ±160 KB gzip), dimuat sebagai ES module lokal — **tanpa CDN, tanpa bundler**, cocok dengan frontend vanilla ES-module dan Vercel statis.
@@ -54,3 +54,12 @@ Diukur di Chromium headless dengan renderer **perangkat lunak (SwiftShader, jauh
 3. Fase 3: modular bangunan (`object_id, building_type, state, actions, animation_set, service binding`), lalu 3–5 bangunan (toko, kantor, sekolah).
 4. Fase 4: NPC dari mesin Sosial/NPC yang sudah ada.
 5. Model karakter/bangunan final (glTF + kompresi) setelah gaya disepakati.
+
+## 8. v7.6.1 — koreksi input, collision, warna
+Lihat `docs/HANDOFF.md` §8. Ringkas: bug kunci A* koordinat negatif diperbaiki; tujuan = titik ketuk; jalur dihaluskan; hasil ketukan dihitung saat sentuh turun; cahaya disesuaikan satuan fisik Three r160 + saturasi seragam; collider lingkaran NPC/kendaraan dengan menyelip, mengalah berbatas waktu, pengawas kemajuan. API QA `world.qa/destination/route/actors/pending` (read-only, untuk tes). Tes: `world3d-path`, `world3d-input`.
+
+## 9. v7.6.2 — model (vehicles.js, people.js), collider kapsul
+Lihat `docs/HANDOFF.md` §9.
+
+## 10. v7.6.3 — audio & pengaturan
+`world3d/audio.js` (`createAudio`: `unlock/step/door/tap/ui/setRain/setVolumes/update/probe`) dipanggil dari `world.js` (`audio`, `setOptions`, `options`). Panel Pengaturan di `pages/world3d.js` (`settingsHtml`, `setPref` → `E.setPref3D`). Preferensi: `S.settings.w3d`. Tes: `npm run test:world3d-audio`.

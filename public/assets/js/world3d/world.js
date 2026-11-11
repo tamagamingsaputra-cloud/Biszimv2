@@ -1,8 +1,11 @@
 // Renderer 3D Kampung BizSim (isometrik, ortografik). Hanya MENGGAMBAR dan menangani input/navigasi.
 // Waktu, kebutuhan, saldo, transaksi tetap milik sistem 2D + server; world ini tidak menyimpan/mengubah data game.
 import * as THREE from '../../vendor/three/three.module.min.js';
-import { T, W, D, BUILDINGS, BY_ID, trees, paths, nodes, findPath, walkable, isOpen, blockOrigin, hash } from './city.js';
-import { mat, C, winMat, lampMat, buildModel, mergeStatic, tree, makeHuman, animateHuman, makePed, animatePed, makeCar } from './models.js';
+import { T, W, D, BUILDINGS, BY_ID, trees, paths, nodes, findPath, walkable, clearAt, isRoad, isOpen, blockOrigin, hash } from './city.js';
+import { mat, C, winMat, lampMat, buildModel, mergeStatic, tree, makeHuman, animateHuman } from './models.js';
+import { makeVehicle, VEHICLE_KINDS, VEHICLE_R, VEHICLE_HL, VEHICLE_SPEED } from './vehicles.js';
+import { makePerson, ROLE_LIST } from './people.js';
+import { createAudio } from './audio.js';
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x)), lerp = (a, b, t) => a + (b - a) * t;
 export const PRESETS = { low: { pr: 1, peds: 4, cars: 2 }, medium: { pr: 1.25, peds: 8, cars: 4 }, high: { pr: 1.75, peds: 14, cars: 7 } };
@@ -10,7 +13,8 @@ const SKY = { night: new THREE.Color(0x1d2744), dawn: new THREE.Color(0xf6c79a),
 const PITCH = 0.62, DIST = 60;
 export function webglOk() { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; } }
 
-export function createWorld(canvas, { quality = 'medium', onBuilding, onFrame, hourFn = () => 12 } = {}) {
+export function createWorld(canvas, { quality = 'medium', onBuilding, onFrame, onNoRoute, hourFn = () => 12 } = {}) {
+  const audio = createAudio(), opts = { sens: 1, pinch: 1, drawDist: 0, shadows: true, power: false }; let lastDraw = 0, stepAcc = 0;
   let preset = PRESETS[quality] ? quality : 'medium', pr = Math.min(window.devicePixelRatio || 1, PRESETS[preset].pr);
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', alpha: false });
   const scene = new THREE.Scene(), cam = new THREE.OrthographicCamera(-10, 10, 10, -10, 1, 200);
@@ -33,7 +37,7 @@ export function createWorld(canvas, { quality = 'medium', onBuilding, onFrame, h
   for (const n of nodes) for (const [sx, sz] of [[1.4, 1.4]]) { const g = new THREE.Group(); const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.2, 6), mat(0x4b5563)); pole.position.y = 1.1; const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), lampMat); lamp.position.y = 2.3; g.add(pole, lamp); g.position.set(n.x + sx, 0, n.z + sz); root.add(g); }
   const dyn = { shutter: null, awning: null, flag: null, hand: null, ticker: null, npc: null };
   const boxes = [];
-  for (const b of BUILDINGS) { if (b.kind === 'field') continue; const m = buildModel(b); root.add(m); const u = m.userData; for (const k of Object.keys(dyn)) if (u[k]) dyn[k] = u[k]; boxes.push({ b, box: new THREE.Box3(new THREE.Vector3(b.x0 - 0.2, 0, b.z0 - 0.2), new THREE.Vector3(b.x1 + 0.2, b.h + 1.2, b.z1 + 0.6)) }); }
+  for (const b of BUILDINGS) { if (b.kind === 'field') continue; const m = buildModel(b); root.add(m); const u = m.userData; for (const k of Object.keys(dyn)) if (u[k]) dyn[k] = u[k]; boxes.push({ b, box: new THREE.Box3(new THREE.Vector3(b.x0 - 0.1, 0, b.z0 - 0.1), new THREE.Vector3(b.x1 + 0.1, b.h + 1.2, b.z1 + 0.3)) }); }
   mergeStatic(root);
 
   // ——— karakter, pejalan kaki, kendaraan ———
@@ -46,8 +50,9 @@ export function createWorld(canvas, { quality = 'medium', onBuilding, onFrame, h
   const nextNode = (cur, prev, r) => { const nb = nodes.filter(n => (Math.abs(n.i - cur.i) + Math.abs(n.j - cur.j)) === 1 && n !== prev); const l = nb.length ? nb : nodes.filter(n => (Math.abs(n.i - cur.i) + Math.abs(n.j - cur.j)) === 1); return l[Math.floor(r * l.length) % l.length]; };
   function spawnActors() {
     for (const o of [...peds, ...cars]) root.remove(o.mesh); peds.length = 0; cars.length = 0; const P = PRESETS[preset];
-    for (let k = 0; k < P.peds; k++) { const n0 = nodes[Math.floor(hash(k, 3) * nodes.length)], mesh = makePed(shirts[k % shirts.length], 0x374151, skins[k % skins.length]); mesh.scale.setScalar(0.62); root.add(mesh); peds.push({ mesh, a: n0, b: nextNode(n0, null, hash(k, 9)), t: hash(k, 5), v: 1.3, seed: k }); }
-    for (let k = 0; k < P.cars; k++) { const n0 = nodes[Math.floor(hash(k, 33) * nodes.length)], bike = k % 3 === 2, mesh = makeCar([0xe5484d, 0x2563eb, 0xfacc15, 0xf4f4f5, 0x16a34a][k % 5], bike ? 'bike' : 'car'); root.add(mesh); cars.push({ mesh, a: n0, b: nextNode(n0, null, hash(k, 19)), t: hash(k, 7), v: bike ? 5 : 4, seed: k + 50 }); }
+    for (let k = 0; k < P.peds; k++) { const n0 = nodes[Math.floor(hash(k, 3) * nodes.length)], mesh = makePerson(ROLE_LIST[k % ROLE_LIST.length], k); mesh.scale.setScalar(0.62 * mesh.userData.hScale); root.add(mesh); if (!opts.shadows) mesh.traverse(q => { if (q.userData.isShadow) q.visible = false; }); peds.push({ r: 0.3, mesh, a: n0, b: nextNode(n0, null, hash(k, 9)), t: hash(k, 5), v: 1.3, seed: k }); }
+    const carColors = [0xe5484d, 0x2563eb, 0xf4f4f5, 0x16a34a, 0xfacc15, 0x7c3aed];
+    for (let k = 0; k < P.cars; k++) { const n0 = nodes[Math.floor(hash(k, 33) * nodes.length)], kind = VEHICLE_KINDS[k % VEHICLE_KINDS.length], mesh = makeVehicle(kind, carColors[k % carColors.length]); root.add(mesh); cars.push({ r: VEHICLE_R[kind], hl: VEHICLE_HL[kind], kind, mesh, a: n0, b: nextNode(n0, null, hash(k, 19)), t: hash(k, 7), v: VEHICLE_SPEED[kind], seed: k + 50 }); }
   }
   spawnActors();
 
@@ -58,28 +63,33 @@ export function createWorld(canvas, { quality = 'medium', onBuilding, onFrame, h
     route = pts || []; moving = route.length > 0; dest.visible = moving && !!end; if (end) dest.position.set(end.x, 0.06, end.z);
     routeLen = 0; let px = player.position.x, pz = player.position.z; for (const p of route) { routeLen += Math.hypot(p.x - px, p.z - pz); px = p.x; pz = p.z; }
     const pos = []; px = player.position.x; pz = player.position.z; for (const p of route) { const L = Math.hypot(p.x - px, p.z - pz), n = Math.max(1, Math.round(L / 0.7)); for (let s = 1; s <= n; s++) pos.push(lerp(px, p.x, s / n), 0.08, lerp(pz, p.z, s / n)); px = p.x; pz = p.z; }
+    bestLen = routeLen; noProg = 0;
     dotGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); dotGeo.setDrawRange(0, pos.length / 3);
   }
-  function walkTo(x, z) { pending = null; const p = findPath(player.position.x, player.position.z, x, z); if (!p) return false; setRoute(p, p[p.length - 1]); follow = true; return true; }
-  function goBuilding(id) { const b = BY_ID[id]; if (!b?.door) return false; pending = null; const p = findPath(player.position.x, player.position.z, b.door.x, b.door.z); if (!p && Math.hypot(player.position.x - b.door.x, player.position.z - b.door.z) > 1.5) return false; pending = id; setRoute(p || [], b.door); follow = true; if (!p || !p.length) arrived(); return true; }
-  function arrived() { if (!pending) return; const b = BY_ID[pending]; player.rotation.y = Math.atan2(b.cx - player.position.x, b.cz - player.position.z); act = 0.9; }
+  let goal = null, stuck = 0, tries = 0, replanning = false, wish = null, curStep = 0, okT = 0, bestLen = Infinity, noProg = 0;
+  function walkTo(x, z) { pending = null; act = 0; goal = { x, z }; if (!replanning) tries = 0; const p = findPath(player.position.x, player.position.z, x, z); if (!p) { onNoRoute?.(); return false; } setRoute(p, p[p.length - 1] || { x, z }); follow = true; if (!replanning) audio.tap(); return true; }
+  function replan() { if (!goal || ++tries > 8) { setRoute([]); pending = null; goal = null; onNoRoute?.(); return; } replanning = true; if (goal.id) goBuilding(goal.id); else walkTo(goal.x, goal.z); replanning = false; }
+  function goBuilding(id) { const b = BY_ID[id]; if (!b?.door) return false; pending = null; act = 0; goal = { id }; if (!replanning) tries = 0; const p = findPath(player.position.x, player.position.z, b.door.x, b.door.z); if (!p && Math.hypot(player.position.x - b.door.x, player.position.z - b.door.z) > 1.5) return false; pending = id; setRoute(p || [], b.door); follow = true; if (!p || !p.length) arrived(); return true; }
+  function arrived() { if (!pending) return; const b = BY_ID[pending]; player.rotation.y = Math.atan2(b.cx - player.position.x, b.cz - player.position.z); act = 0.9; audio.door(); }
 
   // ——— input ———
   const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), pts = new Map();
   let down = null, drag = false, pinch = null;
   const rect = () => canvas.getBoundingClientRect();
-  function pick(ev) {
+  // hasil ketukan dihitung saat jari MENYENTUH layar (kamera mengikuti karakter, jadi saat jari diangkat kamera sudah bergeser)
+  function resolve(ev) {
     const r = rect(); ndc.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, cam);
     let best = null, bd = Infinity; const hit = new THREE.Vector3(); for (const e of boxes) if (ray.ray.intersectBox(e.box, hit)) { const d = hit.distanceTo(ray.ray.origin); if (d < bd) { bd = d; best = e.b; } }
-    if (best) { if (best.door) goBuilding(best.id); onBuilding?.(best, false); return; }
-    const p = new THREE.Vector3(); if (ray.ray.intersectPlane(plane, p)) walkTo(p.x, p.z);
+    if (best) return { b: best }; const p = new THREE.Vector3(); return ray.ray.intersectPlane(plane, p) ? { p } : null;
   }
-  canvas.addEventListener('pointerdown', e => { canvas.setPointerCapture(e.pointerId); pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); down = { x: e.clientX, y: e.clientY }; drag = false; if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a.x - b.x, a.y - b.y); } });
+  function doTap(res) { if (!res) return; if (res.b) { if (res.b.door) goBuilding(res.b.id); onBuilding?.(res.b, false); } else walkTo(res.p.x, res.p.z); }
+  let downPick = null;
+  canvas.addEventListener('pointerdown', e => { audio.unlock(); canvas.setPointerCapture(e.pointerId); pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); down = { x: e.clientX, y: e.clientY }; drag = false; downPick = pts.size === 1 ? resolve(e) : null; if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a.x - b.x, a.y - b.y); } });
   canvas.addEventListener('pointermove', e => { const p = pts.get(e.pointerId); if (!p) return; const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
-    if (pts.size === 2 && pinch) { const [a, b] = [...pts.values()], d = Math.hypot(a.x - b.x, a.y - b.y); zoomT = clamp(zoomT * d / pinch, 0.45, 2.6); pinch = d; drag = true; return; }
-    if (down && (drag || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8)) { drag = true; follow = false; const s = (2 * (16 / zoom)) / rect().height, cy = Math.cos(yaw), sy = Math.sin(yaw); target.x -= cy * dx * s; target.z += sy * dx * s; target.x -= sy * dy * s / Math.sin(PITCH); target.z -= cy * dy * s / Math.sin(PITCH); target.x = clamp(target.x, T.ox, T.ox + W); target.z = clamp(target.z, T.oz, T.oz + D); } });
+    if (pts.size === 2 && pinch) { const [a, b] = [...pts.values()], d = Math.hypot(a.x - b.x, a.y - b.y); zoomT = clamp(zoomT * Math.pow(d / pinch, opts.pinch), 0.45, 2.6); pinch = d; drag = true; return; }
+    if (down && (drag || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8)) { drag = true; follow = false; const s = (2 * (16 / zoom)) / rect().height * opts.sens, cy = Math.cos(yaw), sy = Math.sin(yaw); target.x -= cy * dx * s; target.z += sy * dx * s; target.x -= sy * dy * s / Math.sin(PITCH); target.z -= cy * dy * s / Math.sin(PITCH); target.x = clamp(target.x, T.ox, T.ox + W); target.z = clamp(target.z, T.oz, T.oz + D); } });
   const up = e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = null; };
-  canvas.addEventListener('pointerup', e => { if (!drag && down && pts.has(e.pointerId)) pick(e); up(e); down = null; }); canvas.addEventListener('pointercancel', up);
+  canvas.addEventListener('pointerup', e => { if (!drag && down && pts.has(e.pointerId)) doTap(downPick || resolve(e)); downPick = null; up(e); down = null; }); canvas.addEventListener('pointercancel', up);
   canvas.addEventListener('wheel', e => { e.preventDefault(); zoomT = clamp(zoomT * (1 - Math.sign(e.deltaY) * 0.1), 0.45, 2.6); }, { passive: false });
   function resize() { const w = canvas.clientWidth || 300, h = canvas.clientHeight || 300; renderer.setPixelRatio(pr); renderer.setSize(w, h, false); aspect = w / h; }
   let aspect = 1; new ResizeObserver(resize).observe(canvas); resize();
@@ -91,22 +101,46 @@ export function createWorld(canvas, { quality = 'medium', onBuilding, onFrame, h
     if (h >= 4.5 && h < 5) c.copy(SKY.night).lerp(SKY.dawn, (h - 4.5) / 0.5);
     const dayF = h < 4.5 || h >= 19.5 ? 0 : h < 6 ? (h - 4.5) / 1.5 : h < 18 ? 1 : (19.5 - h) / 1.5; return { c, dayF: clamp(dayF, 0, 1) }; }
   const tmp = new THREE.Vector3();
-  function moveActor(a, dt, isCar) { const A = a.a, B = a.b, dx = B.x - A.x, dz = B.z - A.z, L = Math.hypot(dx, dz) || 1; a.t += a.v * dt / L; if (a.t >= 1) { a.t = 0; const prev = a.a; a.a = B; a.b = nextNode(B, prev, hash(a.seed, Math.floor(t * 3) + 1)); }
+  function moveActor(a, dt, isCar) { const A = a.a, B = a.b, dx = B.x - A.x, dz = B.z - A.z, L = Math.hypot(dx, dz) || 1, qx = player.position.x - a.mesh.position.x, qz = player.position.z - a.mesh.position.z, yieldTo = (qx * dx + qz * dz) > 0 && Math.hypot(qx, qz) < (isCar ? 1.9 + a.r + a.hl : 1.0); let hold = yieldTo; if (yieldTo) { a.wait = (a.wait || 0) + dt; if (a.wait > 1.2) { a.go = 2; a.wait = 0; } } else a.wait = Math.max(0, (a.wait || 0) - dt); if ((a.go || 0) > 0) { a.go -= dt; hold = false; } // mengalah maksimal ±1,2 dtk agar tidak terjadi kebuntuan
+    a.t += hold ? 0 : a.v * dt / L; if (a.t >= 1) { a.t = 0; const prev = a.a; a.a = B; a.b = nextNode(B, prev, hash(a.seed, Math.floor(t * 3) + 1)); }
     const { ox, oz } = lane(a.a, a.b, isCar ? 0.5 : 1.1), x = lerp(a.a.x, a.b.x, a.t) + ox, z = lerp(a.a.z, a.b.z, a.t) + oz; a.mesh.position.set(x, 0, z); a.mesh.rotation.y = Math.atan2(a.b.x - a.a.x, a.b.z - a.a.z); }
+  // tabrakan pemain vs NPC/kendaraan (lingkaran) + jaga tidak pernah masuk tile terhalang
+  function collide(ox, oz) {
+    const R = 0.28; let x = player.position.x, z = player.position.z;
+    const push = a => {
+      let cx = a.mesh.position.x, cz = a.mesh.position.z; // kapsul: titik terdekat pada ruas garis kendaraan
+      if (a.hl) { const ux = a.b.x - a.a.x, uz = a.b.z - a.a.z, L = Math.hypot(ux, uz) || 1, t = Math.max(-a.hl, Math.min(a.hl, ((x - cx) * ux + (z - cz) * uz) / L)); cx += ux / L * t; cz += uz / L * t; }
+      const dx = x - cx, dz = z - cz, d = Math.hypot(dx, dz), m = R + a.r; if (d >= m) return;
+      const rx = d > 1e-4 ? dx / d : 1, rz = d > 1e-4 ? dz / d : 0;
+      // dorong keluar ke titik bebas terdekat di tepi kapsul: arah radial dulu, lalu ±45°, ±90°, ±135°, 180°
+      let moved = false; for (const da of [0, 0.785, -0.785, 1.571, -1.571, 2.356, -2.356, 3.1416]) { const c = Math.cos(da), sn = Math.sin(da), ux = rx * c - rz * sn, uz = rx * sn + rz * c, px = cx + ux * m, pz = cz + uz * m; if (clearAt(px, pz, 0.2)) { x = px; z = pz; moved = true; break; } }
+      if (!moved) { x = ox; z = oz; return; }
+      if (wish) { // menyelip: arah tujuan dikurangi komponen yang menembus aktor (sisa = menyusuri kapsul); bila head-on, pilih sisi yang bebas
+        let tx = wish.x - (wish.x * rx + wish.z * rz) * rx, tz = wish.z - (wish.x * rx + wish.z * rz) * rz; const tl = Math.hypot(tx, tz);
+        const cand = tl > 0.25 ? [[tx / tl, tz / tl]] : [[-rz, rx], [rz, -rx]], k = curStep * 0.9;
+        for (const [ux, uz] of cand) { const sx = x + ux * k, sz = z + uz * k; if (clearAt(sx, sz, 0.2)) { x = sx; z = sz; break; } }
+      }
+    };
+    for (const a of peds) push(a); for (const a of cars) push(a);
+    if (!clearAt(x, z, 0.15)) { x = ox; z = oz; } player.position.x = x; player.position.z = z;
+  }
   let openK = 0;
   function frame(now) {
-    if (!running) return; raf = requestAnimationFrame(frame); frameN++;
+    if (!running) return; raf = requestAnimationFrame(frame); if (opts.power && now - lastDraw < 31) return; lastDraw = now; frameN++;
     const rawDt = (now - last) / 1000; last = now; const dt = Math.min(rawDt, 0.1); t += dt; perf.ms = lerp(perf.ms, rawDt * 1000, 0.1); perf.fps = 1000 / perf.ms; perf.worst = Math.max(perf.worst * 0.995, rawDt * 1000);
     if (perf.slow > 3 && pr > 0.75) { pr = Math.max(0.75, pr - 0.25); perf.slow = 0; resize(); } perf.slow = perf.ms > 40 ? perf.slow + dt : Math.max(0, perf.slow - dt);
     const hour = hourFn(); let speed = 0;
-    if (act > 0) { act -= dt; animateHuman(player, t, 0, 1); if (act <= 0) { const id = pending; pending = null; onBuilding?.(BY_ID[id], true); } }
-    else if (moving) { const p = route[0], dx = p.x - player.position.x, dz = p.z - player.position.z, d = Math.hypot(dx, dz), step = 3.6 * dt; speed = 1;
+    if (act > 0) { act -= dt; animateHuman(player, t, 0, 1); if (act <= 0) { const id = pending; pending = null; if (id && BY_ID[id]) onBuilding?.(BY_ID[id], true); } }
+    else if (moving) { const p = route[0], ox = player.position.x, oz = player.position.z, dx = p.x - player.position.x, dz = p.z - player.position.z, d = Math.hypot(dx, dz), step = 3.6 * dt; speed = 1; wish = d > 1e-6 ? { x: dx / d, z: dz / d } : null; curStep = step;
       if (d <= step) { player.position.x = p.x; player.position.z = p.z; route.shift(); if (!route.length) { moving = false; dest.visible = false; setRoute([]); arrived(); } } else { player.position.x += dx / d * step; player.position.z += dz / d * step; player.rotation.y = Math.atan2(dx, dz); }
+      collide(ox, oz); { const mv = Math.hypot(player.position.x - ox, player.position.z - oz); stuck = moving && mv < step * 0.3 ? stuck + dt : 0; okT = mv >= step * 0.6 ? okT + dt : 0; if (okT > 1.5) { tries = 0; okT = 0; } if (stuck > 0.7) { stuck = 0; replan(); } }
       if (moving) { routeLen = 0; let px = player.position.x, pz = player.position.z; for (const q of route) { routeLen += Math.hypot(q.x - px, q.z - pz); px = q.x; pz = q.z; } }
+      if (moving) { if (routeLen < bestLen - 0.4) { bestLen = routeLen; noProg = 0; } else if ((noProg += dt) > 3) { noProg = 0; replan(); } } // pengawas kemajuan: tidak maju 3 dtk → hitung ulang rute
       animateHuman(player, t, speed); }
     else animateHuman(player, t, 0);
+    if (!moving) { wish = null; collide(player.position.x, player.position.z); } // diam pun tidak boleh ditembus NPC/kendaraan
     const near = dyn.npc && Math.hypot(player.position.x - BY_ID.warung.cx, player.position.z - BY_ID.warung.cz) < 7; if (dyn.npc) animateHuman(dyn.npc, t, 0, near ? 1 : 0);
-    for (const p of peds) { moveActor(p, dt, false); animatePed(p.mesh, t, 1); } for (const c of cars) moveActor(c, dt, true);
+    for (const p of peds) { moveActor(p, dt, false); animateHuman(p.mesh, t, 1); } for (const c of cars) moveActor(c, dt, true);
     ring.scale.setScalar((1 + Math.sin(t * 4) * 0.06) / 0.62); dest.scale.setScalar(1 + Math.sin(t * 6) * 0.12);
     // objek bergerak
     const wopen = isOpen(BY_ID.warung, hour) ? 1 : 0; openK += (wopen - openK) * Math.min(1, dt * 4); if (dyn.shutter) { const k = Math.max(0.05, 1 - openK); dyn.shutter.scale.y = 1.3 * k; dyn.shutter.position.y = 2.3 - 0.65 * k; }
@@ -117,12 +151,27 @@ export function createWorld(canvas, { quality = 'medium', onBuilding, onFrame, h
     cam.left = -H * aspect; cam.right = H * aspect; cam.top = H; cam.bottom = -H; cam.updateProjectionMatrix();
     cam.position.set(target.x + Math.sin(yaw) * Math.cos(PITCH) * DIST, Math.sin(PITCH) * DIST, target.z + Math.cos(yaw) * Math.cos(PITCH) * DIST); cam.lookAt(target);
     // siang/malam
-    const { c, dayF } = skyAt(hour); scene.background = c; hemi.intensity = 0.42 + 0.6 * dayF; sun.intensity = 0.1 + 0.95 * dayF; sun.color.setHex(dayF < 0.5 ? 0x8fa6ff : 0xfff1d0); nightK = lerp(nightK, 1 - dayF, 0.05);
+    const { c, dayF } = skyAt(hour); scene.background = c; hemi.intensity = Math.PI * (0.28 + 0.36 * dayF); sun.intensity = Math.PI * (0.06 + 0.50 * dayF); sun.color.setHex(dayF < 0.5 ? 0x8fa6ff : 0xfff1d0); nightK = lerp(nightK, 1 - dayF, 0.05);
     winMat.emissive.setRGB(1 * nightK, 0.82 * nightK, 0.45 * nightK); winMat.color.setHex(nightK > 0.5 ? 0xffe9a8 : 0xbfe3f2); lampMat.color.setHex(nightK > 0.5 ? 0xffe39a : 0x9aa3ad);
+    // suara: langkah menurut permukaan, kendaraan (jarak/jenis/pan layar), pasar & mesin menurut jarak bangunan
+    if (moving) { stepAcc += speed * 3.6 * dt; if (stepAcc > 0.85) { stepAcc = 0; audio.step(isRoad(Math.floor(player.position.x), Math.floor(player.position.z)) ? 'hard' : 'soft'); } } else stepAcc = 0.6;
+    { const px = player.position.x, pz = player.position.z, dd = id => { const b = BY_ID[id]; return b ? Math.hypot(b.cx - px, b.cz - pz) : 99; };
+      audio.update({ dt, dayF, market: Math.min(dd('warung'), dd('minimarket'), dd('umkm'), dd('bursa'), dd('hub')), machine: Math.min(dd('spbu'), dd('terminal')),
+        vehicles: cars.map(c => { const q = c.mesh.position; tmp.set(q.x, 0, q.z).project(cam); return { kind: c.kind, v: c.v, d: Math.hypot(q.x - px, q.z - pz), pan: tmp.x * 0.9 }; }) }); }
+    // jarak render & bayangan (pengaturan)
+    if (opts.drawDist) for (const o of [...peds, ...cars]) o.mesh.visible = Math.hypot(o.mesh.position.x - player.position.x, o.mesh.position.z - player.position.z) < opts.drawDist;
     renderer.render(scene, cam); if (frameN % 2 === 0) onFrame?.({ yaw, zoom, hour, route: routeLen, moving, follow });
   }
   const api = {
     start(fn) { if (fn) hourFn = fn; if (running) return; running = true; last = performance.now(); raf = requestAnimationFrame(frame); }, stop() { running = false; cancelAnimationFrame(raf); },
+    get destination() { return dest.visible ? { x: dest.position.x, z: dest.position.z } : null; }, get route() { return route.map(q => ({ x: q.x, z: q.z })); }, get actors() { return { peds, cars }; }, get scene() { return scene; }, audio,
+    get options() { return { ...opts }; },
+    /** Pengaturan tampilan/kontrol (hanya presentasi): sens (geser kamera), pinch (zoom), drawDist (0 = tak terbatas), shadows, power (hemat baterai: 30 fps, resolusi 1×). */
+    setOptions(p = {}) {
+      if ('sens' in p) opts.sens = clamp(+p.sens || 1, 0.4, 2.5); if ('pinch' in p) opts.pinch = clamp(+p.pinch || 1, 0.4, 2.5); if ('drawDist' in p) { opts.drawDist = Math.max(0, +p.drawDist || 0); if (!opts.drawDist) for (const o of [...peds, ...cars]) o.mesh.visible = true; }
+      if ('shadows' in p) { opts.shadows = !!p.shadows; player.traverse(o => { if (o.userData.isShadow) o.visible = opts.shadows; }); for (const o of peds) o.mesh.traverse(q => { if (q.userData.isShadow) q.visible = opts.shadows; }); }
+      if ('power' in p) { opts.power = !!p.power; pr = opts.power ? Math.min(pr, 1) : Math.min(window.devicePixelRatio || 1, PRESETS[preset].pr); resize(); }
+    }, get qa() { return { goal, tries, stuck, act, moving, pending }; }, // status internal untuk tes
     goBuilding, walkTo, rotate(d = 1) { yawT += d * Math.PI / 2; }, zoomBy(k) { zoomT = clamp(zoomT * k, 0.45, 2.6); }, recenter() { follow = true; }, get follow() { return follow; },
     setQuality(q) { if (!PRESETS[q]) return; preset = q; pr = Math.min(window.devicePixelRatio || 1, PRESETS[q].pr); resize(); spawnActors(); }, get quality() { return preset; },
     project(x, y, z) { tmp.set(x, y, z).project(cam); const r = rect(); return { x: (tmp.x * 0.5 + 0.5) * r.width, y: (-tmp.y * 0.5 + 0.5) * r.height, visible: tmp.z < 1 && tmp.z > -1 }; },

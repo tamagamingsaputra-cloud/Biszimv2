@@ -8,6 +8,7 @@ import { NEEDS } from '../data/needs-rules.js';
 import { mountShell } from '../ui/shell.js';
 import { createWorld, webglOk, PRESETS } from '../world3d/world.js';
 import { BUILDINGS, BY_ID, T, W, D, isOpen } from '../world3d/city.js';
+import { SERVICES, hasService } from '../world3d/services.js';
 import { IC, ic, esc, sheet, closeSheet, CAT_COLOR, CAT_ICON } from '../world3d/ui3d.js';
 
 await mountShell('world3d', 'Kampung 3D');
@@ -33,7 +34,7 @@ if (!webglOk()) {
   <nav class="k-card k-nav" aria-label="Navigasi 3D"><button data-n="peta">${ic('pin')}<span class="t">Peta</span></button><button data-n="ponsel">${ic('phone')}<span class="t">Ponsel</span></button><button data-n="bisnis">${ic('briefcase')}<span class="t">Bisnis</span></button><button data-n="sosial">${ic('people')}<span class="t">Sosial</span></button><button data-n="menu">${ic('grid2d')}<span class="t">Menu</span></button></nav>${qs.has('debug') ? '<pre class="k-dbg" id="dbg"></pre>' : ''}`;
   const $ = s => root.querySelector(s), cv = $('#cv'), lblHost = $('#lbls');
   let nearest = null, openB = null;
-  const world = createWorld(cv, { quality: qs.get('q') || (matchMedia('(max-width:700px)').matches ? 'medium' : 'high'), hourFn: hourNow,
+  const world = createWorld(cv, { quality: qs.get('q') || (matchMedia('(max-width:700px)').matches ? 'medium' : 'high'), hourFn: hourNow, onNoRoute: () => toast('Tidak ada jalan ke sana. Coba ketuk tempat lain.'),
     onBuilding: (b, arrived) => { if (arrived) openBuilding(b); else toast(`Menuju ${b.name}…`); }, onFrame: f => frameHud(f) });
   const nav = (k) => { root.querySelectorAll('.k-nav button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.n === k))); };
   let toastT = 0; const rt = $('#route'); function toast(t) { rt.textContent = t; rt.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => rt.hidden = true, 1800); }
@@ -74,7 +75,15 @@ if (!webglOk()) {
 
   // ——— sheet bangunan ———
   const dist = b => Math.round(Math.hypot(b.door.x - world.player.position.x, b.door.z - world.player.position.z) * 10);
+  function openService(b) {
+    const S = SERVICES[b.id]; openB = b;
+    const ctx = { toast, refresh: () => paint(), res: r => { toast(r.ok ? r.msg || 'Selesai.' : r.error || 'Gagal.'); paint(); } };
+    let el; const paint = () => { const body = el.querySelector('.k-svc'); const y = el.scrollTop; body.innerHTML = S.html(); el.scrollTop = y; statusHud(); };
+    el = sheet(root, `<div class="k-sh">${ic(S.icon)}<div><h3>${esc(S.title)}</h3><p><span class="k-tag">Layanan 3D</span></p></div></div><div class="k-svc"></div><a class="k-note" href="${esc(b.actions[0]?.href || 'index.html')}" style="display:block">Butuh tampilan lengkap? Buka versi 2D (data sama).</a>`);
+    el.querySelector('.k-svc').innerHTML = S.html(); S.bind(el.querySelector('.k-svc'), ctx);
+  }
   function openBuilding(b) {
+    if (hasService(b.id) && !b.soon) return openService(b);
     openB = b; const open = isOpen(b, hourNow()), npc = b.npc; const tag = b.soon ? '<span class="k-tag off">Belum aktif</span>' : b.hours ? (open ? `<span class="k-tag">Buka ${String(b.hours[0]).padStart(2, '0')}:00–${String(b.hours[1]).padStart(2, '0')}:00</span>` : `<span class="k-tag warn">Tutup · buka ${String(b.hours[0]).padStart(2, '0')}:00</span>`) : '<span class="k-tag">Layanan online</span>';
     const acts = b.soon ? `<p class="k-note"><b>Jujur:</b> ${esc(b.soon)}</p>` : `<div class="k-list">${b.actions.filter(a => !(b.hours && !open)).map(a => `<a class="k-li" href="${a.href}">${ic(a.ic)}<span><b>${esc(a.label)}</b><small>${esc(a.note)}</small></span></a>`).join('') || `<p class="k-note">Tutup saat ini. Kembali pukul ${String(b.hours?.[0] ?? 0).padStart(2, '0')}:00.</p>`}</div>`;
     const els = sheet(root, `<div class="k-sh">${ic(CAT_ICON[b.id] || 'info')}<div><h3>${esc(b.name)}</h3><p>${tag}</p></div></div>${npc ? `<p class="k-note" style="margin:0 0 6px"><b>${esc(npc.name)}:</b> ${esc(open ? npc.say() : 'Warung sudah tutup, Nak. Buka lagi pukul 06:00 ya.')}</p>` : ''}<p class="k-note" style="margin:0">${esc(b.desc)}</p>${acts}<p class="k-note">Semua transaksi dijalankan oleh sistem BizSim yang sama dengan mode 2D (divalidasi server).</p>`, { onClose: () => { openB = null; nav(''); } });
@@ -92,13 +101,30 @@ if (!webglOk()) {
     else if (k === 'sosial') sheet(root, `<div class="k-sh">${ic('people')}<div><h3>Sosial</h3><p>Kontak, pesan, utang, dan janji</p></div></div><div class="k-list"><a class="k-li" href="social.html">${ic('people')}<span><b>Buka Sosial</b><small>Kontak NPC, pesan, bantuan</small></span></a><a class="k-li" href="calendar.html">${ic('calendar')}<span><b>Kalender & Jadwal</b><small>Agenda dan pengingat</small></span></a></div><p class="k-note">Penduduk di jalan adalah ambient (visual saja) dan belum punya profil; kontak nyata ada di Sosial.</p>`, { onClose: () => nav('') });
     else menuPanel();
   }
+  // ——— pengaturan 3D (suara, kamera/kontrol, tampilan, hemat baterai) — presentasi saja, tersimpan di save lewat E.setPref3D ———
+  const PREF_DEF = { master: 0.7, fx: 1, amb: 1, muted: false, sens: 1, pinch: 1, dist: 0, shadows: true, ui: 1, power: false };
+  const prefs = () => ({ ...PREF_DEF, ...(E.S.settings.w3d || {}) });
+  function applyPrefs() { const p = prefs(); world.audio.setVolumes({ master: p.master, fx: p.fx, amb: p.amb, muted: p.muted }); world.setOptions({ sens: p.sens, pinch: p.pinch, drawDist: p.dist, shadows: p.shadows, power: p.power }); root.style.setProperty('--k-ui', p.ui); }
+  const setPref = patch => { E.setPref3D(patch); applyPrefs(); };
+  const rng = (k, l, min, max, step, v) => `<div class="k-srow"><label for="r_${k}">${l}</label><input id="r_${k}" class="k-rng" type="range" data-r="${k}" min="${min}" max="${max}" step="${step}" value="${v}"></div>`;
+  const sw = (k, l, on) => `<div class="k-srow"><span class="k-sl">${l}</span><div class="k-seg"><button data-sw="${k}:1" aria-pressed="${!!on}">Aktif</button><button data-sw="${k}:0" aria-pressed="${!on}">Mati</button></div></div>`;
+  const segOf = (k, l, opts, cur) => `<div class="k-srow"><span class="k-sl">${l}</span><div class="k-seg">${opts.map(([v, t]) => `<button data-sg="${k}:${v}" aria-pressed="${cur === v}">${t}</button>`).join('')}</div></div>`;
+  function settingsHtml() { const p = prefs(); return `<div class="k-sec">Suara</div><div class="k-set">${sw('muted', 'Bisukan semua', p.muted)}${rng('master', 'Volume utama', 0, 1, 0.05, p.master)}${rng('fx', 'Efek (langkah, kendaraan, pintu)', 0, 1, 0.05, p.fx)}${rng('amb', 'Lingkungan (burung, pasar, mesin)', 0, 1, 0.05, p.amb)}<button class="k-btn" data-test="1">Tes suara</button></div>
+      <div class="k-sec">Kamera & kontrol</div><div class="k-set">${rng('sens', 'Kepekaan geser kamera', 0.5, 2, 0.1, p.sens)}${rng('pinch', 'Kepekaan zoom cubit', 0.5, 2, 0.1, p.pinch)}</div>
+      <div class="k-sec">Tampilan</div><div class="k-set">${segOf('dist', 'Jarak render NPC/kendaraan', [[14, 'Dekat'], [24, 'Sedang'], [0, 'Jauh']], p.dist)}${sw('shadows', 'Bayangan karakter', p.shadows)}${segOf('ui', 'Ukuran UI', [[0.9, 'Kecil'], [1, 'Normal'], [1.15, 'Besar']], p.ui)}${sw('power', 'Mode hemat baterai (30 fps, resolusi 1×)', p.power)}</div>`; }
   function menuPanel() {
     const q = world.quality; const el = sheet(root, `<div class="k-sh">${ic('grid2d')}<div><h3>Menu</h3><p>${esc(E.S.player.name)}</p></div></div>
       <div class="k-sec">Kebutuhan karakter</div>${needBars()}<div class="k-sec">Pengaturan grafis</div><div class="k-seg" id="qseg">${['low', 'medium', 'high'].map(x => `<button data-q="${x}" aria-pressed="${q === x}">${{ low: 'Low', medium: 'Medium', high: 'High' }[x]}</button>`).join('')}</div>
       <p class="k-note">Low: resolusi 1×, 4 pejalan, 2 kendaraan. High: resolusi hingga 1,75×, 14 pejalan, 7 kendaraan. Kualitas turun otomatis bila frame lambat.</p><div class="k-sec">Waktu</div><div class="k-seg" id="spd">${[['pause', 'Jeda'], ...CAL.SPEEDS.slice(0, 4).map(s => [s.rate, s.label || (s.rate / CAL.DEFAULT_RATE) + '×'])].map(([v, l]) => `<button data-s="${v}" aria-pressed="${v === 'pause' ? E.S.settings.paused : (!E.S.settings.paused && E.S.settings.rate === v)}">${l}</button>`).join('')}</div>
-      <div class="k-sec">Mode</div><div class="k-list"><a class="k-li" href="index.html">${ic('grid2d')}<span><b>Buka mode 2D</b><small>Akun, karakter, dan save sama persis</small></span></a><a class="k-li" href="life.html">${ic('heart')}<span><b>Kehidupan 2D</b><small>Makan, istirahat, inventaris</small></span></a></div>`, { onClose: () => nav('') });
+      ${settingsHtml()}<div class="k-sec">Mode</div><div class="k-list"><a class="k-li" href="index.html">${ic('grid2d')}<span><b>Buka mode 2D</b><small>Akun, karakter, dan save sama persis</small></span></a><a class="k-li" href="life.html">${ic('heart')}<span><b>Kehidupan 2D</b><small>Makan, istirahat, inventaris</small></span></a></div>`, { onClose: () => nav('') });
+    el.addEventListener('input', e => { const r = e.target.closest('[data-r]'); if (r) setPref({ [r.dataset.r]: +r.value }); });
+    el.addEventListener('click', e => {
+      const sg = e.target.closest('[data-sg],[data-sw]'); if (sg) { const [k, v] = (sg.dataset.sg || sg.dataset.sw).split(':'); setPref({ [k]: sg.dataset.sw ? v === '1' : +v }); sg.parentElement.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b === sg))); }
+      if (e.target.closest('[data-test]')) { world.audio.unlock(); world.audio.door(); setTimeout(() => world.audio.step('hard'), 200); setTimeout(() => world.audio.tap(), 380); }
+    });
     el.addEventListener('click', e => { const q = e.target.closest('[data-q]'); if (q) { world.setQuality(q.dataset.q); el.querySelectorAll('[data-q]').forEach(b => b.setAttribute('aria-pressed', String(b === q))); } const s = e.target.closest('[data-s]'); if (s) { if (s.dataset.s === 'pause') E.setPaused(!E.S.settings.paused); else { E.setRate(+s.dataset.s); if (E.S.settings.paused) E.setPaused(false); } closeSheet(root); setTimeout(menuPanel, 220); } });
   }
+  applyPrefs(); root.addEventListener('click', e => { if (e.target.closest('button,a')) world.audio.ui(); });
   root.querySelector('.k-nav').addEventListener('click', e => { const b = e.target.closest('button[data-n]'); if (b) panel(b.dataset.n); });
   $('#prof').onclick = () => { nav('menu'); menuPanel(); };
   $('#bell').onclick = () => { location.href = 'shop.html#notif'; };
@@ -107,5 +133,5 @@ if (!webglOk()) {
 
   world.start(hourNow); statusHud();
   document.addEventListener('visibilitychange', () => document.hidden ? world.stop() : world.start(hourNow));
-  if (LOCAL) window.__bizsimQA = { E, NE, world, openBuilding, panel };
+  if (LOCAL) window.__bizsimQA = { E, NE, world, openBuilding, panel, F: null };
 }

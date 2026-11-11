@@ -42,3 +42,14 @@ body.k3d-on { overflow: hidden; background: #0f2a20; } body.k3d-on > .app { disp
 .k-fallback { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; background: var(--k-bg, #fff); z-index: 60; text-align: center; }
 @media (max-height: 460px) { .k-right { top: 104px; transform: none; gap: 6px; } .k-right .k-round { width: 38px; height: 38px; } .k-right .k-round .k-ic { width: 22px; height: 22px; } .k-compass { width: 44px; height: 44px; } .k-mini { width: 112px; height: 70px; bottom: calc(70px + env(safe-area-inset-bottom)); } .k-act { bottom: calc(70px + env(safe-area-inset-bottom)); } .k-nav button { min-height: 42px; } .k-nav button span.t { display: none; } .k-route { bottom: calc(120px + env(safe-area-inset-bottom)); } }
 @media (prefers-reduced-motion: reduce) { .k-sheet { transition: none; } }
+.k3d { --k-ui: 1; } .k-top, .k-nav, .k-right, .k-mini { zoom: var(--k-ui); }
+.k-set { display: grid; gap: 8px; } .k-srow { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 36px; }
+.k-srow label, .k-sl { font: 600 13px inherit; flex: 1 1 46%; } .k-rng { flex: 1 1 54%; min-width: 0; height: 32px; accent-color: #2f6fbf; }
+.k-btn { pointer-events: auto; justify-self: start; border: 1px solid var(--k-line); background: var(--k-bg); color: inherit; border-radius: 99px; padding: 8px 16px; font: 600 13px inherit; min-height: 40px; cursor: pointer; }
+/* layanan 3D mandiri */
+.k-row3 { justify-content: space-between; align-items: flex-start; } .k-row3 > span:first-child { flex: 1; min-width: 0; } .k-row3 b { display: block; } .k-row3 small { display: block; opacity: .7; font-size: 12px; margin-top: 2px; }
+.k-rt { display: grid; justify-items: end; gap: 4px; text-align: right; } .k-why { max-width: 150px; font-size: 11px; opacity: .6; }
+.k-btn.pri { background: var(--k-acc, #16a34a); color: #fff; border-color: transparent; } .k-btn:disabled { opacity: .45; }
+.k-q { border: 1px solid var(--k-line); border-radius: 12px; padding: 8px 10px; margin: 8px 0; } .k-q legend { font-weight: 600; font-size: 13px; padding: 0 4px; } .k-q label { display: flex; gap: 8px; padding: 6px 2px; font-size: 13px; min-height: 36px; align-items: center; }
+.k-qty { width: 92px; border: 1px solid var(--k-line); border-radius: 10px; padding: 8px; background: var(--k-bg); color: inherit; font: inherit; min-height: 40px; }
+.k-form { display: grid; gap: 8px; margin: 6px 0 10px; } .k-fl { display: grid; gap: 3px; font-size: 12px; opacity: .85; }

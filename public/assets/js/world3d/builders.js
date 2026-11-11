@@ -5,12 +5,13 @@ import * as THREE from '../../vendor/three/three.module.min.js';
 export const PAL = { grass: 0x8fbf6a, grass2: 0x7fb25d, road: 0x6b6f76, roadLine: 0xf2e9c8, dirt: 0xc9a66b, wall: 0xf3e3c3, wall2: 0xe9c9a0, roof: 0xc2543a, roof2: 0x6f8f9c, wood: 0x8a5a3b, trunk: 0x7a4f32, leaf: 0x4f9a4a, leaf2: 0x66b055, skin: 0xe0a97c, skin2: 0xc68a5e, glass: 0xbfe3f2, shadow: 0x000000 };
 const mats = new Map();
 export const mat = (c, o = {}) => { const k = c + JSON.stringify(o); let m = mats.get(k); if (!m) { m = new THREE.MeshLambertMaterial({ color: c, flatShading: true, ...o }); mats.set(k, m); } return m; };
+export const hash = (a, b) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x); };
 const geos = new Map();
-const geo = (k, f) => { let g = geos.get(k); if (!g) { g = f(); geos.set(k, g); } return g; };
-const box = (w, h, d) => geo(`b${w},${h},${d}`, () => new THREE.BoxGeometry(w, h, d));
-const mesh = (g, m, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); return o; };
+export const geo = (k, f) => { let g = geos.get(k); if (!g) { g = f(); geos.set(k, g); } return g; };
+export const box = (w, h, d) => geo(`b${w},${h},${d}`, () => new THREE.BoxGeometry(w, h, d));
+export const mesh = (g, m, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); return o; };
 
-export function blobShadow(r = 0.5) { const m = mesh(geo('sh' + r, () => new THREE.CircleGeometry(r, 14)), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false }), 0, 0.02, 0); m.rotation.x = -Math.PI / 2; return m; }
+export function blobShadow(r = 0.5) { const m = mesh(geo('sh' + r, () => new THREE.CircleGeometry(r, 14)), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false }), 0, 0.02, 0); m.rotation.x = -Math.PI / 2; m.userData.isShadow = true; return m; }
 
 /** Manusia low-poly: kepala, badan, lengan & kaki berpivot (untuk animasi jalan/lambai). */
 export function makeHuman({ shirt = 0x2f6fbf, pants = 0x3a3f58, skin = PAL.skin, hair = 0x2b1d14, female = false } = {}) {
@@ -20,11 +21,14 @@ export function makeHuman({ shirt = 0x2f6fbf, pants = 0x3a3f58, skin = PAL.skin,
   const hairM = mesh(geo('hair', () => new THREE.SphereGeometry(0.255, 12, 8, 0, Math.PI * 2, 0, Math.PI * (female ? 0.62 : 0.5))), mat(hair), 0, 1.6, -0.01); body.add(hairM);
   if (female) body.add(mesh(box(0.34, 0.3, 0.14), mat(hair), 0, 1.42, -0.17));
   for (const s of [-1, 1]) body.add(mesh(geo('eye', () => new THREE.SphereGeometry(0.035, 6, 6)), mat(0x1a1a1a), s * 0.09, 1.6, 0.21));
+  body.add(mesh(box(0.05, 0.06, 0.05), mat(skin), 0, 1.55, 0.235)); // hidung
+  const mouth = mesh(box(0.1, 0.022, 0.03), mat(0x8a3b3b), 0, 1.48, 0.222); body.add(mouth);
+  for (const s of [-1, 1]) { const br = mesh(box(0.085, 0.02, 0.03), mat(hair), s * 0.09, 1.67, 0.205); br.rotation.z = s * -0.12; body.add(br); }
   const limb = (x, y, len, w, c, geoKey) => { const p = new THREE.Group(); p.position.set(x, y, 0); p.add(mesh(box(w, len, w), mat(c), 0, -len / 2, 0)); body.add(p); return p; };
   const armL = limb(-0.36, 1.2, 0.5, 0.14, shirt), armR = limb(0.36, 1.2, 0.5, 0.14, shirt);
   const legL = limb(-0.14, 0.72, 0.72, 0.17, pants), legR = limb(0.14, 0.72, 0.72, 0.17, pants);
   for (const l of [legL, legR]) l.add(mesh(box(0.2, 0.1, 0.28), mat(0x2a2320), 0, -0.72, 0.04));
-  g.add(blobShadow(0.42)); g.userData = { body, armL, armR, legL, legR, head, phase: Math.random() * 6 };
+  g.add(blobShadow(0.42)); g.userData = { body, armL, armR, legL, legR, head, mouth, torso, phase: Math.random() * 6 };
   return g;
 }
 

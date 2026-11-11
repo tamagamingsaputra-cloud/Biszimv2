@@ -5,7 +5,9 @@ import { makeHuman, animateHuman } from './builders.js';
 export { makeHuman, animateHuman };
 
 const mats = new Map();
-export const mat = (c, o = {}) => { const k = c + JSON.stringify(o); let m = mats.get(k); if (!m) { m = new THREE.MeshLambertMaterial({ color: c, flatShading: true, ...o }); mats.set(k, m); } return m; };
+// penguatan saturasi seragam (palet pastel tampak pudar di HP); abu-abu murni (jalan, batu) tetap netral karena s≈0
+const _hsl = {}; export const vivid = (hex, k = 1.2) => { const c = new THREE.Color(hex); c.getHSL(_hsl); return c.setHSL(_hsl.h, Math.min(1, _hsl.s * k), _hsl.l); };
+export const mat = (c, o = {}) => { const k = c + JSON.stringify(o); let m = mats.get(k); if (!m) { m = new THREE.MeshLambertMaterial({ color: vivid(c), flatShading: true, ...o }); mats.set(k, m); } return m; };
 export const winMat = new THREE.MeshLambertMaterial({ color: 0xbfe3f2, emissive: 0x000000, flatShading: true });
 export const lampMat = new THREE.MeshBasicMaterial({ color: 0x9aa3ad });
 export const C = { grass: 0x8cc063, grass2: 0x7db356, road: 0x555b63, line: 0xf1e7c3, dirt: 0xd8b27a, dirt2: 0xcfa56c, wall: 0xf6e8c8, wall2: 0xeed4a6, white: 0xf4f1ea, wood: 0x8a5a3b, leaf: 0x4f9a4a, leaf2: 0x68b35a, trunk: 0x7a4f32, water: 0x5fb4d6, stone: 0xb9b2a4, glass: 0x8cc4dc };
@@ -14,13 +16,16 @@ CONE4.rotateY(Math.PI / 4);
 const GABLE = (() => { const s = new THREE.Shape(); s.moveTo(-0.5, 0); s.lineTo(0.5, 0); s.lineTo(0, 1); s.closePath(); const e = new THREE.ExtrudeGeometry(s, { depth: 1, bevelEnabled: false }); e.translate(0, 0, -0.5); return e; })();
 const HALF = new THREE.SphereGeometry(0.5, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2);
 
-const put = (p, g, m, w, h, d, x, y, z, ry = 0) => { const o = new THREE.Mesh(g, m); o.scale.set(w, h, d); o.position.set(x, y, z); o.rotation.y = ry; p.add(o); return o; };
+export const put = (p, g, m, w, h, d, x, y, z, ry = 0) => { const o = new THREE.Mesh(g, m); o.scale.set(w, h, d); o.position.set(x, y, z); o.rotation.y = ry; p.add(o); return o; };
 export const box = (p, w, h, d, x, yb, z, c, ry) => put(p, BOX, typeof c === 'object' ? c : mat(c), w, h, d, x, yb + h / 2, z, ry);
 export const cyl = (p, r, h, x, yb, z, c) => put(p, CYL, mat(c), r * 2, h, r * 2, x, yb + h / 2, z);
 export const sph = (p, r, x, y, z, c) => put(p, SPH, typeof c === 'object' ? c : mat(c), r * 2, r * 2, r * 2, x, y, z);
 export const gable = (p, w, h, d, x, yb, z, c, ry) => put(p, GABLE, mat(c), w, h, d, x, yb, z, ry);
 export const hip = (p, w, h, d, x, yb, z, c) => put(p, CONE4, mat(c), w * 1.414, h, d * 1.414, x, yb + h / 2, z);
-const win = (p, w, h, x, y, z, ry = 0) => put(p, BOX, winMat, w, h, 0.06, x, y, z, ry);
+// jendela dengan bingkai putih, sekat silang, dan ambang (lebih terbaca & mirip referensi)
+const FRAME = 0xf4f1ea;
+const win = (p, w, h, x, y, z, ry = 0) => { put(p, BOX, mat(FRAME), w + 0.12, h + 0.12, 0.05, x, y, z, ry); const g = put(p, BOX, winMat, w, h, 0.07, x, y, z, ry);
+  if (w > 0.5) { put(p, BOX, mat(FRAME), 0.045, h, 0.085, x, y, z, ry); put(p, BOX, mat(FRAME), w, 0.045, 0.085, x, y, z, ry); } put(p, BOX, mat(0xcfc8b8), w + 0.22, 0.06, 0.16, x, y - h / 2 - 0.08, z + 0.04, ry); return g; };
 
 export function tree(s = 1, c = C.leaf) { const g = new THREE.Group(); cyl(g, 0.12, 0.9, 0, 0, 0, C.trunk); put(g, ICO, mat(c), 1.5, 1.5, 1.5, 0, 1.55, 0); put(g, ICO, mat(C.leaf2), 1.0, 1.0, 1.0, 0.4, 1.2, 0.25); g.scale.setScalar(s); return g; }
 
